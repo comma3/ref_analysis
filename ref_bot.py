@@ -142,6 +142,8 @@ for post in submissions:
 
         # Game_id, Game_thread_id, Post_gamethread_id, Winner, Loser, home_winner
 
+        # Game_thread_id, post_id, post_body
+
 
 # We may want some parallelization here so we don't miss new threads
 analyze_comments(to_analyze)
