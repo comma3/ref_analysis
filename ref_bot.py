@@ -5,7 +5,7 @@ import re
 
 
 
-def determine_game_thread(posts):
+def determine_game_thread(threads):
     """
     Takes a list of potential gamethreads and returns the post that is
     identified as the most likely candidate. In most cases, this should
@@ -16,19 +16,19 @@ def determine_game_thread(posts):
 
     OUTPUT: A single string for the correct post id
     """
-    if len(posts) != 1:
+    if len(threads) != 1:
         # determine which post has more comments
         # This really shouldn't ever be more than 2 or 3
         current_leader = ('', 0)
-        for post in posts:
-            num_comments = len(reddit.submission(id=post).comments)
+        for thread in threads:
+            num_comments = len(reddit.submission(id=thread[0]).comments)
             if num_comments > current_leader[1]:
                 current_leader = (post, num_comments)
         if current_leader[0]:
             return current_leader[0]
         else:
             raise 'No valid game thread found!'
-    return posts[0]
+    return threads[0]
 
 def analyze_comments(to_analyze):
     ## TODO: Maybe this should be a class...
@@ -43,7 +43,7 @@ def analyze_comments(to_analyze):
 # Should use ESPN game id to ensure uniqueness
 # postgame threads are supposed to contain links to box scores,
 # so we will collect them from there.
-game_id = set()
+game_ids = set()
 # conn = sqlite3.connect("D:\\reddit\\reddit_user_data.sqlite3")
 # curr = conn.cursor()
 # curr.execute("""SELECT username
@@ -69,41 +69,66 @@ for post in submissions:
     # are created. I believe duplicates are usually deleted quite quickly,
     # so 5 minutes should be plenty. We'll count posts in case there are
     # multiple game threads to differentiate.
-    is_game_thread = '[game thread]' in post.lower()
-    is_postgame_thread ='[postgame thread]' in post.lower()
-    is_old_enough = post.created_utc < time.time() - 300: 
+
+    is_old_enough = post.created_utc < time.time() - 300:
     # This old enough metric may not work if posts are created too quickly
     # That is, they might not be returned by subreddit.new() after 5 minutes
-    # Might be better to just check after game for existence/whichever has more
-    # posts.
-    if is_game_thread and is_old_enough:
+
+    # Checking age first and continuing prevents excess nesting and improves
+    # readability.
+    if not is_old_enough:
+        continue
+
+
+    is_game_thread = '[game thread]' in post.lower()
+    is_postgame_thread ='[postgame thread]' in post.lower()
+
+    if is_game_thread:
+        if not post.is_self:
+            raise "Game thread was not a selfpost. Post id: {}".format(post.id)
+
         away, home = re.findall(r'([A-z -]+) @ ([A-z -]+)'), post.lower())
         potential_valid_game_threads[post.id] = (away, home)
 
     # Check for postgame threads in new posts
     # We are only going to act on postgame threads that are older than 5 minutes
     # so that we ensure that we have the correct game
-    if is_postgame_thread and is_old_enough:
+    elif is_postgame_thread:
         # We can start analyzing the game thread because commenting is effectly
         # finished
+        if not post.is_self:
+            raise "Postgame thread is not a selfpost. Post id: {}".format(post.id)
+
+        try:
+            game_id = re.findall(r'gameId=([0-9]+)', post.selftext)[0]
+        except: # TODO: determine the error
+            raise "No ESPN link in postgame thread id {}".format(post.id)
+
         winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)'), post.lower())
-        game_threads = [thread for thread, teams in potential_valid_game_threads.items() if away in teams and home in teams]
+
+        game_threads = [(thread, winner, loser) for thread, teams in potential_valid_game_threads.items() if away in teams and home in teams]
+
+        # Keep track of whether the winning team was home or away
+        home_winner = winner == gamethreads[0][1]
+
         if not game_threads:
             # Do a search back a few hours and try to find the game thread.
             pass
 
-        # Do the analysis. Note the function call.
-        # May want to get some extra threading here.
+        # Generate list of games to analyze
         to_analyze.append(determine_game_thread(game_threads))
+
         # Do some clean up.
-        # This should keep the potential_valid_game_threads list nearly
-        # empty. Problems may occur if a duplicate postgame thread appears long
-        # after the game ended and a true postgame thread was found.
+        # This should keep the potential_valid_game_threads list manageable.
+        # Problems may occur if a duplicate postgame thread appears long
+        # after the game ended and a  postgame thread was already found.
         for thread in game_threads:
             del potential_valid_game_threads[thread]
 
+        # Game_id, Game_thread_id, Post_gamethread_id, Winner, Loser, Winner_H
 
-# We may want some parallelization here.
+
+# We may want some parallelization here so we don't miss new threads
 analyze_comments(to_analyze)
 
 
