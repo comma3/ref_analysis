@@ -44,70 +44,64 @@ def collect_old_game_ids(db, passed_set=False):
 
     return 0, set() # Returning an empty set for now
 
-def call_get_submissions(praw_instance, start_time, total_list=[], paginate=False, game_ids=set(), subreddit='cfb'):
+def generate_dates(season_start, season_end, interval=None):
     """
-    Recursive approach rapidly exceeded max recursion depth.
+    Generates a complete list of utc timestamps for dates between season_start
+    and season_end. Could be modified to skip days or to collect actual dates
+    that have games from a DB or the web. I prefer the exhaustive search for
+    now as it only needs to be completed once.
 
-    Looping handled by this function for clarity.
+    INPUT:
+    season_start: String of date in MM/DD/YYYY for the first day of the season.
+    season_end: String of date in MM/DD/YYYY for the last day of the season.
+
+    OUTPUT:
+    list of utc timestamps corresponding to every 4am EST in that period
+
+    TODO: address DST?
     """
 
-    search_further = True
-    while search_further:
-        total_list, paginate = get_submissions(praw_instance, start_time,
-                        total_list, paginate=paginate, subreddit=subreddit)
-        search_further = datetime.utcfromtimestamp(paginate.created_utc) >= start_time
-        print(time.strftime("%Z - %m/%d, %H:%M:%S", time.localtime(paginate.created)))
-        print(paginate.fullname)
-        #print(total_list)
+    epoch = datetime.utcfromtimestamp(0)
+    # Naive datetime (local machine time) setting "day" start to 4am EST
+    next_date = (parser.parse(season_start)-epoch).total_seconds() - 57600
+    stop_date = (parser.parse(season_end)-epoch).total_seconds() + 86400
+    while next_date < stop_date:
+        next_date = next_date + 86400
+        # Stack overflow said this was the best method...
+        yield next_date
 
-    return total_list
-
-def get_submissions(praw_instance, start_time, total_list=[], paginate=False, subreddit='cfb'):
+def get_submissions(praw_instance, start_time, stop_time=None, query='', subreddit='cfb'):
     """
-    Get limit of subreddit submissions.
+    Get limit of subreddit submissions by date. Defaults to search a singal day
+    so usage is suggested to put a utc timestamp for midnight
 
     praw_instance = a properly initialize praw instance
-    start_time = date where the seach should begin in utc timestamp
+    start_time = int or float of date where the seach should begin in
+                utc timestamp
+    stop_time = defaults to a timedelta of +1 day
     total_list = list of posts that are found by the method
-    paginate = last post in a set of praw results. Used to set start for next
-                set of results
-    subreddit = subreddit to search (easy modification for other sports)
-
-    Modified from https://gist.github.com/dangayle/4e6864300b58fee09ce1
+    subreddit = string respresenting subreddit to search (easy modification for
+                other sports).
+    query = string for reddit search (reddit search is very unreliable, so we
+            check ourselves).
     """
-    limit = 100  # Reddit maximum limit
 
-    if paginate:
-        # get set of items posted prior to the last item from last call
-        submissions = praw_instance.subreddit(subreddit).new(limit=limit, params={"after": paginate.fullname})
-    else:
-        submissions = praw_instance.subreddit(subreddit).new(limit=limit)
+    if not stop_time:
+        # Making an assumption that there won't be 1000 posts in a single day
+        # Reddit search limits results to 1000 for anything
+        stop_time = date = start_time + 86400 # add a day
 
-    # iterate through the submissions generator object
-    # We need to store the last post in the current set no matter what.
-    # so we need to track the loops (enumerate doesn't work on generator)
-    i = 0
-    submissions_list= []
-    for thread in submissions:
-
-        i+= 1
-        # Make sure we are getting correct post typedatetime.utcfromtimestamp(paginate.created_utc) >= start_time
-        is_game_thread = '[game thread]' in thread.title.lower() or '[postgame thread]' in thread.title.lower()
-        if thread.is_self and is_game_thread:
-        # and that it's a game thread or post game thread
-            submissions_list.append(thread)
-
-        # Store the last post in the current set of results
-        # We will use this result to determine our starting point for the next
-        # set of results
-        if i <  2:
-            print(thread)
-        if i == limit:
-            paginate = thread
-
-    total_list += submissions_list
-
-    return total_list, paginate
+    game_threads = []
+    i = 0 # Can't use enumerate on generator
+    for thread in praw_instance.subreddit(subreddit).submissions(start_time, stop_time, query):
+        i += 1
+        title = thread.title.lower()
+        if '[postgame thread]' in title or '[game thread]' in title:
+            game_threads.append(thread)
+    print(i)
+    if i > 950:
+        raise "Dangerously close to search limits"
+    return game_threads
 
 
 def analyze_game_thread(threads, old_games):
@@ -132,7 +126,7 @@ def analyze_game_thread(threads, old_games):
             if not game_id:
                 raise "No game id in postgame thread!"
 
-            winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', post.lower())
+            winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', thread.lower())
 
             if game_id in output_dict:
                 print(thread)
@@ -141,7 +135,7 @@ def analyze_game_thread(threads, old_games):
                 print(thread)
                 raise "Duplicate postgame thread!"
             else:
-                winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', post.lower())
+                winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', thread.lower())
                 working_dict[winner] = game_id
 
         elif '[game thread]' in current_title:
@@ -159,42 +153,45 @@ def analyze_game_thread(threads, old_games):
                 output_dict[working_dict[home]] = [date, thread.id, home, away, home, 0]
             else:
                 print(thread)
+                # Probably just pass here. Occasionally game threads aren't created
                 raise "Postgame thread appeared before game thread!"
-
         update_db(output_dict)
 
 
-    def update_db(games):
+def update_db(games):
 
-        conn = sqlite3.connect("/data/cfb_game_db.sqlite3")
-        curr = conn.cursor()
+    conn = sqlite3.connect("/data/cfb_game_db.sqlite3")
+    curr = conn.cursor()
 
-        # Just gonna create the table here so I don't have to do it elsewhere
-        # Pass if the table already exists
-        try:
-            curr.execute("""CREATE TABLE
-                            games (
-                            game_id string, --Only an int if you want to do math with it
-                            date string,
-                            thread string,
-                            home string,
-                            away string,
-                            winner string,
-                            call_differential
-                            )
-                            """)
+    # Just gonna create the table here so I don't have to do it elsewhere
+    # Pass if the table already exists
+    try:
+        curr.execute("""CREATE TABLE
+                        games (
+                        game_id string, --Only an int if you want to do math with it
+                        date string,
+                        thread string,
+                        home string,
+                        away string,
+                        winner string,
+                        call_differential int,
+                        approx_home_fans int, -- maybe detractors?
+                        approx_away_fans int,
+                        approx_impartial_fans int
+                        )
+                        """)
 
-        except sqlite3.OperationalError:
-            # Totally fine that table already exists
-            pass
+    except sqlite3.OperationalError:
+        # Totally fine that table already exists
+        pass
 
-        game_tuples = [(k,v) for k,v in games.items()]
-        curr.executemany("""INSERT INTO playbyplay
-                        (game_id, date, thread, home, away, winner, call_differential)
-                        VALUES (?,?,?,?,?,?,?)
-                        """, game_tuples)
+    game_tuples = [(k,v) for k,v in games.items()]
+    curr.executemany("""INSERT INTO playbyplay
+                    (game_id, date, thread, home, away, winner, call_differential)
+                    VALUES (?,?,?,?,?,?,?)
+                    """, game_tuples)
 
-        conn.close()
+    conn.close()
 
 
 def analyze_comments(to_analyze):
@@ -216,16 +213,13 @@ if __name__ == '__main__':
     # Create bot instance
     reddit = praw.Reddit('bot1')
 
-    # In case program crashes while collecting,
-    # we find (one of) the oldest found games and start our
-    # search there.
-    if last_game:
-        paginate = reddit.submission(id=last_game)
-    else:
-        paginate = False
-
-    search_depth = datetime.utcnow() - timedelta(weeks=4)
-
+    gamethreads = []
     time_start = datetime.now()
-    call_get_submissions(reddit, search_depth, paginate=paginate, game_ids = game_ids) # Adds to DB
+    for date in generate_dates('9/1/2017', '1/4/2018'):
+        #print(date)
+        print(datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S'))
+        gamethreads.extend(get_submissions(reddit, date, query=''))
+        size = sum([sys.getsizeof(x) for x in gamethreads])
+        print('List size: ', len(gamethreads), ' memory ', size) # Adds to DB
+    analyze_game_thread(gamethreads, game_ids)
     print(datetime.now() - time_start)
