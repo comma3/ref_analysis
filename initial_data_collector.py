@@ -100,7 +100,7 @@ def get_submissions(praw_instance, start_time, stop_time=None, query='', subredd
         is_game = '[game thread]' in title
         if is_postgame or is_game:
             game_threads.append(thread)
-    print(i)
+    print('Total threads on this date: ', i)
     if i > 950:
         raise "Dangerously close to search limits"
     return game_threads
@@ -126,6 +126,8 @@ def analyze_game_thread(threads, old_games):
     if threads[0].created_utc < threads[1].created_utc:
         threads = threads[::-1]
 
+    no_post_game = []
+    no_game_thread = []
     for thread in threads:
         current_title = thread.title.lower()
         if '[post game thread]' in current_title or '[postgame thread]' in current_title:
@@ -142,7 +144,9 @@ def analyze_game_thread(threads, old_games):
             # Sometimes "Game threads" and "Postgame threads" will be made for
             # events that aren't games
             try:
-                winner, loser = map(str.strip, re.findall(r'\]([A-z \-&\.\'é]+) defeats ([A-z \-&\.\'é]+)', current_title)[0])
+                #winner, loser = map(str.strip, re.findall(r'\]([A-z \-&\.\'é]+) defeats ([A-z \-&\.\'é]+)', current_title)[0])
+                winner, loser = map(str.strip, re.findall(r'[\]|:](\D+) defeats (\D+)[ (]', current_title)[0])
+
             except IndexError:
                 print('Incorrect postgame thread format')
                 print(current_title)
@@ -152,7 +156,8 @@ def analyze_game_thread(threads, old_games):
             if game_id in output_dict.values():
                 raise BaseException("Duplicate postgame thread! Thread id: {}".format(thread))
             elif winner in working_dict.keys():
-                raise BaseException("Duplicate postgame thread! Thread id: {}".format(thread))
+                no_game_thread.append(working_dict[winner])
+                working_dict[winner] = game_id
             else:
                 working_dict[winner] = game_id
 
@@ -161,7 +166,8 @@ def analyze_game_thread(threads, old_games):
             # events that aren't games
             try:
                 # vs. indicates neutral site. May alter stats somewhat.
-                away, home = map(str.strip, re.findall(r'\]([A-z \-&\.\'é]+) [@|vs.]+ ([A-z \-&\.\'é]+)', current_title)[0])
+                #away, home = map(str.strip, re.findall(r'\]([A-z \-&\.\'é]+) [@|vs.]+ ([A-z \-&\.\'é]+)', current_title)[0])
+                away, home = map(str.strip, re.findall(r'[\]|:](\D+) [@|vs.]+ (\D+)[ (]', current_title)[0])
             except IndexError:
                 print('Incorrect game thread format')
                 print(current_title)
@@ -186,14 +192,19 @@ def analyze_game_thread(threads, old_games):
             else:
                 # Probably just pass here. Occasionally game threads aren't created
                 # if we don't have a game thread, we can't really do anything.
-                print('postgame thread not found')
-                print(home, away)
-                #print(working_dict.keys())
-                print(current_title)
-                print(thread)
+                # print('postgame thread not found')
+                # print(home, away)
+                # #print(working_dict.keys())
+                # print(current_title)
+                # print(thread)
+                no_post_game.append((home, away, thread.id))
                 #raise BaseException("Postgame thread appeared before game thread! Thread id: {}".format(thread))
     #update_db(output_dict)
     print(len(output_dict))
+    print(len(no_post_game))
+    print(len(no_game_thread))
+    print(working_dict)
+
 
 
 def update_db(games):
@@ -245,7 +256,7 @@ if __name__ == '__main__':
     db = '~/data/cfb_game_db.sqlite3'
     subreddit = 'cfb'
     season_start ='9/1'
-    season_end = '9/5'
+    season_end = '9/30'
     firt_year = 2017
     last_year = 2017
 
