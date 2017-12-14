@@ -105,7 +105,7 @@ def get_submissions(praw_instance, start_time, stop_time=None, query='', subredd
 
 def analyze_game_thread(threads, old_games):
     """
-    Takes a list of potential gamethreads and filters for duplicates.
+    Takes a list of potential game_threads and filters for duplicates.
 
     ESPN gameids are used as unique keys.
 
@@ -206,28 +206,45 @@ def update_db(games):
 
 def analyze_comments(to_analyze):
     """
-    Takes a list of gamethreads that are ready to analyze.
+    Takes a list of game_threads that are ready to analyze.
     """
     pass
 
 
 
 if __name__ == '__main__':
+    # Input variables
+    # Could make this a command line script
+    db = '~/data/cfb_game_db.sqlite3'
+    subreddit = 'cfb'
+    season_start ='9/1/2017'
+    season_end = '9/7/2017'
+
+    # These are collected from praw.initialize
+    # See fake_praw.ini for format with credentials redacted
+    bot_params = 'bot1'
+
     # Make sure we aren't doubling up on games. Uses ESPN game id to ensure
     # uniqueness. Postgame threads are supposed to contain links to box scores,
     # so we will collect them from there.
-    last_game, game_ids = collect_old_game_ids('~/data/cfb_game_db.sqlite3', True)  # Currently just passing until db is set up
+    last_game, game_ids = collect_old_game_ids(db, True)  # Currently just passing until db is set up
 
     # Create bot instance
-    reddit = praw.Reddit('bot1')
+    reddit = praw.Reddit(bot_params)
 
-    gamethreads = []
+    game_threads = []
+
+    # Time how long a season takes to collect
+    # Mostly limited by Reddit TOS to 1 request every 2 seconds
+    # Approx. 4.5 minutes per CFB season
     time_start = datetime.now()
-    for date in generate_dates('9/1/2017', '9/7/2017'):
-        #print(date)
-        print(datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S'))
-        gamethreads.extend(get_submissions(reddit, date, query=''))
-        size = sum([sys.getsizeof(x) for x in gamethreads])
-        print('List size: ', len(gamethreads), ' memory ', size) # Adds to DB
-    analyze_game_thread(gamethreads, game_ids)
+    for date in generate_dates(season_start, season_end):
+        #print(date) # UTC
+        print(datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')) # Human
+        game_threads.extend(get_submissions(reddit, date))
+        # Determine size in memory -> ~100 MB / CFB season
+        size = sum([sys.getsizeof(x) for x in game_threads])
+        print('List size: ', len(game_threads), ' memory ', size)
+    # Could do some parallelization here
+    analyze_game_thread(game_threads, game_ids) # Adds to DB
     print(datetime.now() - time_start)
