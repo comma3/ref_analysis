@@ -1,6 +1,8 @@
 
 import sys, re
 from datetime import datetime, timedelta
+from dateutil import parser
+
 import time
 import sqlite3
 
@@ -11,11 +13,11 @@ def collect_old_game_ids(db, passed_set=False):
     Gets list of games that have already been analyzed to ensure that games
     aren't analyzed twice. While running, the set should be kept in memory
     and passed around rather than touching the DB. Passing an empty set
-    will cause the DB query.
+    will start the DB query.
 
     INPUT: set
 
-    OUTPUT: set
+    OUTPUT: thread id of the most recent game, set of game_ids
     """
     if not passed_set:
         conn = sqlite3.connect(db)
@@ -54,7 +56,9 @@ def call_get_submissions(praw_instance, start_time, total_list=[], paginate=Fals
         total_list, paginate = get_submissions(praw_instance, start_time,
                         total_list, paginate=paginate, subreddit=subreddit)
         search_further = datetime.utcfromtimestamp(paginate.created_utc) >= start_time
-        print(total_list)
+        print(time.strftime("%Z - %m/%d, %H:%M:%S", time.localtime(paginate.created)))
+        print(paginate.fullname)
+        #print(total_list)
 
     return total_list
 
@@ -85,6 +89,7 @@ def get_submissions(praw_instance, start_time, total_list=[], paginate=False, su
     i = 0
     submissions_list= []
     for thread in submissions:
+
         i+= 1
         # Make sure we are getting correct post typedatetime.utcfromtimestamp(paginate.created_utc) >= start_time
         is_game_thread = '[game thread]' in thread.title.lower() or '[postgame thread]' in thread.title.lower()
@@ -95,6 +100,8 @@ def get_submissions(praw_instance, start_time, total_list=[], paginate=False, su
         # Store the last post in the current set of results
         # We will use this result to determine our starting point for the next
         # set of results
+        if i <  2:
+            print(thread)
         if i == limit:
             paginate = thread
 
@@ -125,7 +132,7 @@ def analyze_game_thread(threads, old_games):
             if not game_id:
                 raise "No game id in postgame thread!"
 
-            winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)'), post.lower())
+            winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', post.lower())
 
             if game_id in output_dict:
                 print(thread)
@@ -134,11 +141,11 @@ def analyze_game_thread(threads, old_games):
                 print(thread)
                 raise "Duplicate postgame thread!"
             else:
-                winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)'), post.lower())
+                winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', post.lower())
                 working_dict[winner] = game_id
 
         elif '[game thread]' in current_title:
-            away, home = re.findall(r'([A-z -]+) @ ([A-z -]+)'), post.lower())
+            away, home = re.findall(r'([A-z -]+) @ ([A-z -]+)', post.lower())
             date = datetime.fromutc(thread.created_utc)
 
             if (date, home, away) in found:
@@ -149,7 +156,7 @@ def analyze_game_thread(threads, old_games):
             if away in working_dict:
                 output_dict[working_dict[away]] = [date, thread.id, home, away, away, 0]
             elif home in working_dict:
-                output_dict[work?,?,?ing_dict[home]] = [date, thread.id, home, away, home, 0]
+                output_dict[working_dict[home]] = [date, thread.id, home, away, home, 0]
             else:
                 print(thread)
                 raise "Postgame thread appeared before game thread!"
@@ -181,7 +188,7 @@ def analyze_game_thread(threads, old_games):
             # Totally fine that table already exists
             pass
 
-        game_tuples = (k,v for k,v in games.items())
+        game_tuples = [(k,v) for k,v in games.items()]
         curr.executemany("""INSERT INTO playbyplay
                         (game_id, date, thread, home, away, winner, call_differential)
                         VALUES (?,?,?,?,?,?,?)
@@ -204,7 +211,7 @@ if __name__ == '__main__':
     # Make sure we aren't doubling up on games. Uses ESPN game id to ensure
     # uniqueness. Postgame threads are supposed to contain links to box scores,
     # so we will collect them from there.
-    last_game, game_ids = collect_old_game_ids(True)  # Currently just passing until db is set up
+    last_game, game_ids = collect_old_game_ids('/data/cfb_game_db.sqlite3', True)  # Currently just passing until db is set up
 
     # Create bot instance
     reddit = praw.Reddit('bot1')
