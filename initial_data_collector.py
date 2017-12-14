@@ -95,7 +95,10 @@ def get_submissions(praw_instance, start_time, stop_time=None, query='', subredd
     for thread in praw_instance.subreddit(subreddit).submissions(start_time, stop_time, query):
         i += 1
         title = thread.title.lower()
-        if '[postgame thread]' in title or '[game thread]' in title:
+        # Unfortunately there is some inconsistency here
+        is_postgame = '[post game thread]' in title or '[postgame thread]' in title
+        is_game = '[game thread]' in title
+        if is_postgame or is_game:
             game_threads.append(thread)
     print(i)
     if i > 950:
@@ -117,47 +120,72 @@ def analyze_game_thread(threads, old_games):
     working_dict = {}
     found = set()
 
+    # Should try to find the postgame thread first
+    # Reddit queries are ordered in time, so it makes sense to search from the
+    # beginning to the end and flip here.
+    if threads[0].created_utc < threads[1].created_utc:
+        threads = threads[::-1]
+
     for thread in threads:
         current_title = thread.title.lower()
+        print(working_dict)
+        if '[post game thread]' in current_title or '[postgame thread]' in current_title:
+            # Sometimes "Game threads" and "Postgame threads" will be made for
+            # events that aren't games
+            try:
+                game_id = re.findall(r'gameid=([0-9]{9})', thread.selftext.lower())[0]
+            except IndexError:
+                # Probably want a better way to handle these
+                print("No game id in postgame thread!\nTitle: {}\nThread: {}".format(current_title, thread))
+                continue
+                #raise BaseException("No game id in postgame thread!\nTitle: {}\nThread: {}".format(current_title, thread))
 
-        if '[postgame thread]' in current_title:
-            game_id = re.findall(r'gameid=([0-9]{9})', thread.body.lower())[0]
-            if not game_id:
-                raise "No game id in postgame thread!"
+            # Sometimes "Game threads" and "Postgame threads" will be made for
+            # events that aren't games
+            try:
+                winner, loser = re.findall(r'\] ([A-z -]+) defeats ([A-z -]+)', current_title)[0]
+            except IndexError:
+                print('Incorrect postgame thread format')
+                print(thread)
+                continue
 
-            print(re.findall(r'([A-z -]+) defeats ([A-z -]+)', current_title.lower()))
-            winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', current_title.lower())
-
-            if game_id in output_dict:
+            if game_id in output_dict.values():
                 print(thread)
                 raise "Duplicate postgame thread!"
-            elif winner in working_dict:
+            elif winner in working_dict.keys():
                 print(thread)
                 raise "Duplicate postgame thread!"
             else:
-                winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', current_title.lower())
                 working_dict[winner] = game_id
 
         elif '[game thread]' in current_title:
-            print(re.findall(r'\] ([A-z -]+) @ ([A-z -]+)', current_title.lower()))
-            print(re.findall(r'\] ([A-z -]+) @ ([A-z -]+)', current_title.lower())[0])
+            # Sometimes "Game threads" and "Postgame threads" will be made for
+            # events that aren't games
+            try:
+                away, home = re.findall(r'\] ([A-z -]+) @ ([A-z -]+)', current_title)[0]
+            except IndexError:
+                print('Incorrect game thread format')
+                print(thread)
+                continue
 
-            away, home = re.findall(r'\] ([A-z -]+) @ ([A-z -]+)', current_title.lower())[0]
-            date = datetime.fromutc(thread.created_utc)
+            date = thread.created
 
             if (date, home, away) in found:
-                print(thread)
-                raise "Duplicate game threads!"
+                raise BaseException("Duplicate game threads! Thread id: {}".format(thread))
             found.add((date, home, away))
 
-            if away in working_dict:
-                output_dict[working_dict[away]] = [date, thread.id, home, away, away, 0]
-            elif home in working_dict:
-                output_dict[working_dict[home]] = [date, thread.id, home, away, home, 0]
+            # Correlate winner and home/away
+            # Set output_dict key as ESPN game_id
+            if away in working_dict.keys():
+                output_dict[working_dict[away]] = [date, thread.id, home, away, away]
+            elif home in working_dict.keys():
+                output_dict[working_dict[home]] = [date, thread.id, home, away, home]
             else:
-                print(thread)
                 # Probably just pass here. Occasionally game threads aren't created
-                raise "Postgame thread appeared before game thread!"
+                # if we don't have a game thread, we can't really do anything.
+                print('thread not found')
+                print(thread)
+                #raise BaseException("Postgame thread appeared before game thread! Thread id: {}".format(thread))
     #update_db(output_dict)
     print(output_dict)
 
@@ -217,27 +245,28 @@ if __name__ == '__main__':
     # Could make this a command line script
     db = '~/data/cfb_game_db.sqlite3'
     subreddit = 'cfb'
-    season_start ='9/1/2017'
-    season_end = '9/7/2017'
+    season_start ='9/1'
+    season_end = '9/6'
+    firt_year = 2017
+    last_year = 2017
 
     # These are collected from praw.initialize
     # See fake_praw.ini for format with credentials redacted
     bot_params = 'bot1'
+    # Create bot instance
+    reddit = praw.Reddit(bot_params)
 
     # Make sure we aren't doubling up on games. Uses ESPN game id to ensure
     # uniqueness. Postgame threads are supposed to contain links to box scores,
     # so we will collect them from there.
     last_game, game_ids = collect_old_game_ids(db, True)  # Currently just passing until db is set up
 
-    # Create bot instance
-    reddit = praw.Reddit(bot_params)
-
-    game_threads = []
-
     # Time how long a season takes to collect
     # Mostly limited by Reddit TOS to 1 request every 2 seconds
     # Approx. 4.5 minutes per CFB season
     time_start = datetime.now()
+
+    game_threads = []
     for date in generate_dates(season_start, season_end):
         #print(date) # UTC
         print(datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')) # Human
