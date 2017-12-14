@@ -1,4 +1,3 @@
-
 import sys, re
 from datetime import datetime, timedelta
 from dateutil import parser
@@ -126,7 +125,8 @@ def analyze_game_thread(threads, old_games):
             if not game_id:
                 raise "No game id in postgame thread!"
 
-            winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', thread.lower())
+            print(re.findall(r'([A-z -]+) defeats ([A-z -]+)', current_title.lower()))
+            winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', current_title.lower())
 
             if game_id in output_dict:
                 print(thread)
@@ -135,11 +135,14 @@ def analyze_game_thread(threads, old_games):
                 print(thread)
                 raise "Duplicate postgame thread!"
             else:
-                winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', thread.lower())
+                winner, loser = re.findall(r'([A-z -]+) defeats ([A-z -]+)', current_title.lower())
                 working_dict[winner] = game_id
 
         elif '[game thread]' in current_title:
-            away, home = re.findall(r'([A-z -]+) @ ([A-z -]+)', post.lower())
+            print(re.findall(r'\] ([A-z -]+) @ ([A-z -]+)', current_title.lower()))
+            print(re.findall(r'\] ([A-z -]+) @ ([A-z -]+)', current_title.lower())[0])
+
+            away, home = re.findall(r'\] ([A-z -]+) @ ([A-z -]+)', current_title.lower())[0]
             date = datetime.fromutc(thread.created_utc)
 
             if (date, home, away) in found:
@@ -155,14 +158,14 @@ def analyze_game_thread(threads, old_games):
                 print(thread)
                 # Probably just pass here. Occasionally game threads aren't created
                 raise "Postgame thread appeared before game thread!"
-        update_db(output_dict)
+    #update_db(output_dict)
+    print(output_dict)
 
 
 def update_db(games):
 
     conn = sqlite3.connect("/data/cfb_game_db.sqlite3")
     curr = conn.cursor()
-
     # Just gonna create the table here so I don't have to do it elsewhere
     # Pass if the table already exists
     try:
@@ -187,18 +190,23 @@ def update_db(games):
 
     game_tuples = [(k,v) for k,v in games.items()]
     curr.executemany("""INSERT INTO playbyplay
-                    (game_id, date, thread, home, away, winner, call_differential)
-                    VALUES (?,?,?,?,?,?,?)
+                    (game_id,
+                    date,
+                    thread,
+                    home,
+                    away,
+                    winner,
+                    call_differential)
+                    VALUES
+                    (?,?,?,?,?,?,?,0,0,0,0)
                     """, game_tuples)
 
     conn.close()
 
 
 def analyze_comments(to_analyze):
-    ## TODO: Maybe this should be a class...
     """
-    Takes a list of gamethreads that are ready to analyze (i.e., it's been
-    about 5 minutes since the game ended).
+    Takes a list of gamethreads that are ready to analyze.
     """
     pass
 
@@ -208,14 +216,14 @@ if __name__ == '__main__':
     # Make sure we aren't doubling up on games. Uses ESPN game id to ensure
     # uniqueness. Postgame threads are supposed to contain links to box scores,
     # so we will collect them from there.
-    last_game, game_ids = collect_old_game_ids('/data/cfb_game_db.sqlite3', True)  # Currently just passing until db is set up
+    last_game, game_ids = collect_old_game_ids('~/data/cfb_game_db.sqlite3', True)  # Currently just passing until db is set up
 
     # Create bot instance
     reddit = praw.Reddit('bot1')
 
     gamethreads = []
     time_start = datetime.now()
-    for date in generate_dates('9/1/2017', '1/4/2018'):
+    for date in generate_dates('9/1/2017', '9/7/2017'):
         #print(date)
         print(datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S'))
         gamethreads.extend(get_submissions(reddit, date, query=''))
