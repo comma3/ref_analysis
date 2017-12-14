@@ -62,11 +62,11 @@ def generate_dates(season_start, season_end, interval=None):
 
     epoch = datetime.utcfromtimestamp(0)
     # Naive datetime (local machine time) setting "day" start to 4am EST
+    # Stack overflow said this was the best method to convert to utc...
     next_date = (parser.parse(season_start)-epoch).total_seconds() - 57600
     stop_date = (parser.parse(season_end)-epoch).total_seconds() + 86400
     while next_date < stop_date:
         next_date = next_date + 86400
-        # Stack overflow said this was the best method...
         yield next_date
 
 def get_submissions(praw_instance, start_time, stop_time=None, query='', subreddit='cfb'):
@@ -128,7 +128,6 @@ def analyze_game_thread(threads, old_games):
 
     for thread in threads:
         current_title = thread.title.lower()
-        print(working_dict)
         if '[post game thread]' in current_title or '[postgame thread]' in current_title:
             # Sometimes "Game threads" and "Postgame threads" will be made for
             # events that aren't games
@@ -143,18 +142,17 @@ def analyze_game_thread(threads, old_games):
             # Sometimes "Game threads" and "Postgame threads" will be made for
             # events that aren't games
             try:
-                winner, loser = re.findall(r'\] ([A-z -]+) defeats ([A-z -]+)', current_title)[0]
+                winner, loser = map(str.strip, re.findall(r'\]([A-z \-&\.\'é]+) defeats ([A-z \-&\.\'é]+)', current_title)[0])
             except IndexError:
                 print('Incorrect postgame thread format')
+                print(current_title)
                 print(thread)
                 continue
 
             if game_id in output_dict.values():
-                print(thread)
-                raise "Duplicate postgame thread!"
+                raise BaseException("Duplicate postgame thread! Thread id: {}".format(thread))
             elif winner in working_dict.keys():
-                print(thread)
-                raise "Duplicate postgame thread!"
+                raise BaseException("Duplicate postgame thread! Thread id: {}".format(thread))
             else:
                 working_dict[winner] = game_id
 
@@ -162,9 +160,11 @@ def analyze_game_thread(threads, old_games):
             # Sometimes "Game threads" and "Postgame threads" will be made for
             # events that aren't games
             try:
-                away, home = re.findall(r'\] ([A-z -]+) @ ([A-z -]+)', current_title)[0]
+                # vs. indicates neutral site. May alter stats somewhat.
+                away, home = map(str.strip, re.findall(r'\]([A-z \-&\.\'é]+) [@|vs.]+ ([A-z \-&\.\'é]+)', current_title)[0])
             except IndexError:
                 print('Incorrect game thread format')
+                print(current_title)
                 print(thread)
                 continue
 
@@ -178,16 +178,22 @@ def analyze_game_thread(threads, old_games):
             # Set output_dict key as ESPN game_id
             if away in working_dict.keys():
                 output_dict[working_dict[away]] = [date, thread.id, home, away, away]
+                # pop the item so we can use the same team next week
+                working_dict.pop(away)
             elif home in working_dict.keys():
                 output_dict[working_dict[home]] = [date, thread.id, home, away, home]
+                working_dict.pop(home)
             else:
                 # Probably just pass here. Occasionally game threads aren't created
                 # if we don't have a game thread, we can't really do anything.
-                print('thread not found')
+                print('postgame thread not found')
+                print(home, away)
+                #print(working_dict.keys())
+                print(current_title)
                 print(thread)
                 #raise BaseException("Postgame thread appeared before game thread! Thread id: {}".format(thread))
     #update_db(output_dict)
-    print(output_dict)
+    print(len(output_dict))
 
 
 def update_db(games):
@@ -232,13 +238,6 @@ def update_db(games):
     conn.close()
 
 
-def analyze_comments(to_analyze):
-    """
-    Takes a list of game_threads that are ready to analyze.
-    """
-    pass
-
-
 
 if __name__ == '__main__':
     # Input variables
@@ -246,7 +245,7 @@ if __name__ == '__main__':
     db = '~/data/cfb_game_db.sqlite3'
     subreddit = 'cfb'
     season_start ='9/1'
-    season_end = '9/6'
+    season_end = '9/5'
     firt_year = 2017
     last_year = 2017
 
