@@ -130,6 +130,7 @@ def analyze_game_thread(threads, old_games):
     no_game_thread = []
     for thread in threads:
         current_title = thread.title.lower()
+
         if '[post game thread]' in current_title or '[postgame thread]' in current_title:
             # Sometimes "Game threads" and "Postgame threads" will be made for
             # events that aren't games
@@ -183,11 +184,14 @@ def analyze_game_thread(threads, old_games):
             # Correlate winner and home/away
             # Set output_dict key as ESPN game_id
             if away in working_dict.keys():
-                output_dict[working_dict[away]] = [date, thread.id, home, away, away]
+		# thread.score should give votes - use as a first guess at number of votes
+		# thread.downs and thread.ups may give better number - i think reddit has disabled this feature.
+		# .view_count and .visited may also be useful.
+                output_dict[working_dict[away]] = [date, thread.id, home, away, away, thread.score]
                 # pop the item so we can use the same team next week
                 working_dict.pop(away)
             elif home in working_dict.keys():
-                output_dict[working_dict[home]] = [date, thread.id, home, away, home]
+                output_dict[working_dict[home]] = [date, thread.id, home, away, home, thread.score]
                 working_dict.pop(home)
             else:
                 # Probably just pass here. Occasionally game threads aren't created
