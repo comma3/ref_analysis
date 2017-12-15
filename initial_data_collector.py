@@ -181,6 +181,14 @@ def analyze_game_thread(threads, old_games):
                 raise BaseException("Duplicate game threads! Thread id: {}".format(thread))
             found.add((date, home, away))
 
+            #
+            # print('===========')
+            # print(thread.id)
+            # print(thread.score) # vote fuzzing so there is inaccuracy
+            # print(thread.ups) same as score
+            # print(thread.downs) gives 0
+            # print(thread.view_count) gives None
+
             # Correlate winner and home/away
             # Set output_dict key as ESPN game_id
             if away in working_dict.keys():
