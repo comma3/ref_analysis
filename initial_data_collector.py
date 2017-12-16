@@ -28,7 +28,7 @@ def clean_team_names(title, is_postgame):
     #away, home = map(str.strip, re.findall(r'\]([A-z \-&\.\']+) [@|vs.]+ ([A-z \-&\.\']+)', current_title)[0])
     #away, home = map(str.strip, re.findall(r'[\]|:|\)](\D+) [@|vs.|at]+ (\D+)[ (]', current_title)[0])
 
-    title = title.replace(u'\xe9','e')
+    title = title.replace(u'\xe9','e') # replaces e` in san jose
 
     # split based on type of title
     if is_postgame:
@@ -256,11 +256,11 @@ def analyze_game_thread(threads, old_games, db):
                 # print(thread)
                 no_post_game.append((home, away, thread.id))
                 #raise BaseException("Postgame thread appeared before game thread! Thread id: {}".format(thread))
-    print(len(output_dict))
-    print(len(no_post_game))
-    print(no_post_game)
-    print(len(no_game_thread))
-    print(len(output_dict))
+    #print(len(output_dict))
+    #print(len(no_post_game))
+    #print(no_post_game)
+    #print(len(no_game_thread))
+    #print(len(output_dict))
     update_db(output_dict, db)
 
 
@@ -294,7 +294,14 @@ def update_db(games, db):
         # Totally fine that table already exists
         pass
 
-    game_tuples = [(k,v) for k,v in games.items()]
+    # Flatten dictionary results into a single list
+    game_tuples =[]
+    for k,v in games.items():
+        temp = [k]
+        for x in v:
+            temp.append(x)
+        game_tuples.append(temp)
+
     print(game_tuples)
     curr.executemany("""INSERT INTO games
                     (game_id,
@@ -309,7 +316,7 @@ def update_db(games, db):
                     approx_away_fans,
                     approx_impartial_fans)
                     VALUES
-                    (?,?,?,?,?,?,?,?,0,0,0)
+                    (?,?,?,?,?,?,?,?,0,0,0,0)
                     """, game_tuples)
 
     conn.close()
