@@ -21,31 +21,11 @@ def clean_team_names(title):
     tuple of cleaned team names
 
     """
-    # probably a better way to do this
-    # vs. indicates neutral site. May alter stats somewhat.
-
     title = title.replace(u'\xe9','e') # replaces e` in san jose
-
-    # split based on type of title
-    # Change the regex to find these
-    # if is_postgame:
-    #     if 'defeats' in title:
-    #         first, second = title.split('defeats')
-    #     elif 'defeat' in title:
-    #         first, second = title.split('defeats')
-    #     elif 'beats' in title:
-    #         first, second = title.split('beats')
-    #     elif 'beat' in title:
-    #         first, second = title.split('beats')
-    #     else:
-    #         # Gets caught outside function
-    #         raise IndexError
-    #     # Drop '[(post)game thread]'
-    #     first = first.split(']')[1]
-    # else:
+    # vs. indicates neutral site. May alter stats somewhat.
     first, second = re.findall(r'[\]]([\s\S]+) (?:@|[vs.]+|at|defeat[s]*|beat[s]*|upset[s]*|survive[s]*) ([\s\S]+)', title)[0]
     # Some games have titles (e.g., FCS Championship: ) and are split on ':'
-    # First we need to get rid of time (e.g., 6:30) - just remove :[0-9]
+    # First we need to get rid of time (e.g., 6:30) - just remove :[0-5]
     for i in range(6):
         first = first.replace(':' + str(i),'')
         second = second.replace(':' + str(i),'')
@@ -58,12 +38,6 @@ def clean_team_names(title):
         second = second.split(':')[1]
     except IndexError:
         pass
-
-    # Sometimes we would end up with only spaces from titles like
-    # [post game thread] #18 ucla defeats washington 44-30 from the split on
-    # ']' with a space before #
-    first = first.strip()
-    second = second.strip()
 
     first_clean = re.findall(r'([a-z \-&\.\']+)', first)[0]
     second_clean = re.findall(r'([a-z \-&\.\']+)', second)[0]
@@ -163,21 +137,21 @@ def get_submissions(praw_instance, start_time, stop_time=None, query='', subredd
     if not stop_time:
         # Making an assumption that there won't be 1000 posts in a single day
         # Reddit search limits results to 1000 for anything
-        stop_time = date = start_time + 86400 # add a day
+        stop_time = start_time + 86400 # add a day
 
     game_threads = []
     i = 0 # Can't use enumerate on generator
     for thread in praw_instance.subreddit(subreddit).submissions(start_time, stop_time, query):
         i += 1
         title = thread.title.lower()
-        # Unfortunately there is some inconsistency here
         is_postgame = '[post game thread]' in title or '[postgame thread]' in title
         is_game = '[game thread]' in title
         if is_postgame or is_game:
             game_threads.append(thread)
     print('Total threads on this date: ', i)
-    if i > 950:
-        raise "Dangerously close to search limits"
+    if i > 999:
+        # Want to raise an exception here so we don't miss any data
+        raise BaseException("Exceeded search limits!")
     return game_threads
 
 
@@ -195,7 +169,7 @@ def analyze_game_thread(threads, old_games):
     working_dict = {}
     found = set()
 
-    # Should try to find the postgame thread first
+    # Need to find the postgame thread first
     # Reddit queries are ordered in time, so it makes sense to search from the
     # beginning to the end and flip here.
     if threads[0].created_utc < threads[1].created_utc:
@@ -207,11 +181,10 @@ def analyze_game_thread(threads, old_games):
         current_title = thread.title.lower()
         if '[post game thread]' in current_title or '[postgame thread]' in current_title:
             # Sometimes "Game threads" and "Postgame threads" will be made for
-            # events that aren't games
+            # events that aren't games, resulting in some of the regex failing
             try:
                 game_id = re.findall(r'id=([0-9]{9})', thread.selftext.lower())[0]
             except IndexError:
-                # Probably want a better way to handle these
                 print("No game id in postgame thread!\nTitle: {}\nThread: {}".format(current_title, thread))
                 continue
             try:
@@ -224,14 +197,17 @@ def analyze_game_thread(threads, old_games):
                 print(thread)
                 continue
 
-            if game_id in output_dict.values():
-                raise BaseException("Duplicate postgame thread! Thread id: {}".format(thread))
+            # Check if there's already a postgame thread
+            if working_dict.get(winner, [None])[0] == game_id:
+                # Hasn't happened yet, but I'm going to raise an exception
+                # so I can investigate if it happens.
+                raise BaseException("Duplicate postgame thread!\nThread id: {}\nGame_id: {}\nOther thread:{}".format(thread, game_id, working_dict[winner][1]))
             elif winner in working_dict.keys():
                 # Game wasn't popped from last week, so we conclude there was
                 # no game thread.
                 no_game_thread.append(working_dict[winner])
                 # Overwrite the previous entry and move on.
-                working_dict[winner] = game_id
+                working_dict[winner] = (game_id, thread.id)
             elif not winner:
                 # This issue should be resolved
                 print('+++++++++++\nNo winner returned!\n+++++++++')
@@ -239,7 +215,7 @@ def analyze_game_thread(threads, old_games):
                 print(current_title)
                 print(thread)
             else:
-                working_dict[winner] = game_id
+                working_dict[winner] = (game_id,thread.id)
 
         elif '[game thread]' in current_title:
             try:
@@ -256,11 +232,11 @@ def analyze_game_thread(threads, old_games):
             found.add((date, home, away))
             # Correlate winner and home/away Set output_d key as ESPN game_id
             if away in working_dict.keys():
-                output_dict[working_dict[away]] = [date, thread.id, home, away, away, thread.score]
+                output_dict[working_dict[away][0]] = [date, thread.id, working_dict[away][1].id, home, away, away, thread.score]
                 # pop the item so we can use the same team next week (see above)
                 working_dict.pop(away)
             elif home in working_dict.keys():
-                output_dict[working_dict[home]] = [date, thread.id, home, away, home, thread.score]
+                output_dict[working_dict[home][0]] = [date, thread.id, working_dict[home][1].id, home, away, home, thread.score]
                 working_dict.pop(home)
             else:
                 # Probably just pass here. Occasionally game threads aren't created
