@@ -39,11 +39,13 @@ def clean_team_names(title):
     except IndexError:
         pass
 
+    first = first.strip() # These are needed so that the correct group is found
+    second = second.strip()
     first_clean = re.findall(r'([a-z \-&\.\']+)', first)[0]
     second_clean = re.findall(r'([a-z \-&\.\']+)', second)[0]
     return first_clean.strip(), second_clean.strip()
 
-def collect_old_game_ids(db, passed_set=False):
+def collect_old_game_ids(db):
     """
     Gets list of games that have already been analyzed to ensure that games
     aren't analyzed twice. While running, the set should be kept in memory
@@ -54,30 +56,29 @@ def collect_old_game_ids(db, passed_set=False):
 
     OUTPUT: thread id of the most recent game, set of game_ids
     """
-    if not passed_set:
-        conn = sqlite3.connect(db)
-        curr = conn.cursor()
-        curr.execute("""SELECT
-                        game_id
-                        FROM
-                        games
-                        """)
-        old_games = curr.fetchall()
 
-        curr.execute("""SELECT
-                        thread, date
-                        FROM
-                        games
-                        ORDER BY
-                        date
-                        LIMIT
-                        1
-                        """)
-        last_game = curr.fetchall()
-        conn.close()
-        return last_game, set(old_games)
+    conn = sqlite3.connect(db)
+    curr = conn.cursor()
+    curr.execute("""SELECT
+                    game_id
+                    FROM
+                    games
+                    """)
+    old_games = curr.fetchall()
 
-    return 0, set() # Returning an empty set for now
+    curr.execute("""SELECT
+                    thread, date
+                    FROM
+                    games
+                    ORDER BY
+                    date
+                    LIMIT
+                    1
+                    """)
+    last_game = curr.fetchall()
+    conn.close()
+    return set(old_games)
+
 
 def generate_dates(season_start, season_end, year, interval=86400):
     """
@@ -154,6 +155,17 @@ def get_submissions(praw_instance, start_time, stop_time=None, query='', subredd
         raise BaseException("Exceeded search limits!")
     return game_threads
 
+def match_postgame_with_game(home, away, date, working_dict, output_dict, thread, no_post_game, game_date=None):
+
+    if not game_date:
+        game_date = date
+
+    try:
+        output_dict[working_dict[(away, date)][0]] = [game_date, thread.id, working_dict[(away, date)][1], home, away, away, thread.score]
+    except KeyError:
+        output_dict[working_dict[(home, date)][0]] = [game_date, thread.id, working_dict[(home, date)][1], home, away, home, thread.score]
+
+    return output_dict, no_post_game
 
 def analyze_game_thread(threads, old_games):
     """
@@ -169,16 +181,17 @@ def analyze_game_thread(threads, old_games):
     working_dict = {}
     found = set()
 
-    # Need to find the postgame thread first
+    # Want to find the postgame thread first
     # Reddit queries are ordered in time, so it makes sense to search from the
     # beginning to the end and flip here.
     if threads[0].created_utc < threads[1].created_utc:
         threads = threads[::-1]
-
+    # Although we can still use the game threads if we can't identify a
+    # post game thread. Will have to handle them slightly differently
     no_post_game = []
-    no_game_thread = []
     for thread in threads:
         current_title = thread.title.lower()
+        date = datetime.fromtimestamp(thread.created).strftime('%Y-%m-%d')
         if '[post game thread]' in current_title or '[postgame thread]' in current_title:
             # Sometimes "Game threads" and "Postgame threads" will be made for
             # events that aren't games, resulting in some of the regex failing
@@ -198,16 +211,10 @@ def analyze_game_thread(threads, old_games):
                 continue
 
             # Check if there's already a postgame thread
-            if working_dict.get(winner, [None])[0] == game_id:
+            if working_dict.get((winner, date), [None])[0] == game_id:
                 # Hasn't happened yet, but I'm going to raise an exception
                 # so I can investigate if it happens.
-                raise BaseException("Duplicate postgame thread!\nThread id: {}\nGame_id: {}\nOther thread:{}".format(thread, game_id, working_dict[winner][1]))
-            elif winner in working_dict.keys():
-                # Game wasn't popped from last week, so we conclude there was
-                # no game thread.
-                no_game_thread.append(working_dict[winner])
-                # Overwrite the previous entry and move on.
-                working_dict[winner] = (game_id, thread.id)
+                print("Duplicate postgame thread!\nThread id: {}\nGame_id: {}\nOther thread:{}".format(thread, game_id, working_dict[winner,date][1]))
             elif not winner:
                 # This issue should be resolved
                 print('+++++++++++\nNo winner returned!\n+++++++++')
@@ -215,7 +222,7 @@ def analyze_game_thread(threads, old_games):
                 print(current_title)
                 print(thread)
             else:
-                working_dict[winner] = (game_id,thread.id)
+                working_dict[(winner, date)] = (game_id,thread.id)
 
         elif '[game thread]' in current_title:
             try:
@@ -226,31 +233,30 @@ def analyze_game_thread(threads, old_games):
                 print(thread)
                 continue
 
-            date = datetime.fromtimestamp(thread.created).strftime('%Y-%m-%d')
-            if (date, home, away) in found:
-                raise BaseException("Duplicate game threads! Thread id: {}".format(thread))
-            found.add((date, home, away))
-            # Correlate winner and home/away Set output_d key as ESPN game_id
-            if away in working_dict.keys():
-                output_dict[working_dict[away][0]] = [date, thread.id, working_dict[away][1].id, home, away, away, thread.score]
-                # pop the item so we can use the same team next week (see above)
-                working_dict.pop(away)
-            elif home in working_dict.keys():
-                output_dict[working_dict[home][0]] = [date, thread.id, working_dict[home][1].id, home, away, home, thread.score]
-                working_dict.pop(home)
-            else:
-                # Probably just pass here. Occasionally game threads aren't created
-                # if we don't have a game thread, we can't really do anything.
-                no_post_game.append((home, away, thread.id))
-    #print(len(output_dict))
-    #print(len(no_post_game))
-    #print(no_post_game)
-    #print(len(no_game_thread))
+
+            # Attempt to correlate postgame thread with game thread
+            # Sometimes there are no postgame thread or they lacked game_id
+            # This is especially true for older threads (before ca. 2015)
+            # where threads were manually created
+            try:
+                output_dict, no_post_game = match_postgame_with_game(home, away, date, working_dict, output_dict, thread, no_post_game)
+            except KeyError:
+                # games can span midnight so we make sure the game thread
+                # wasn't from the day before the postgame thread
+                new_day = parser.parse(date)
+                day_plus_one = new_day + timedelta(days=1)
+                next_day = day_plus_one.strftime('%Y-%m-%d')
+                try:
+                    output_dict, no_post_game = match_postgame_with_game(home, away, next_day, working_dict, output_dict, thread, no_post_game, game_date=date)
+                except KeyError:
+                    #print('No post game thread found!')
+                    no_post_game.append([date, thread.id, 'None', home, away, 'None', thread.score])
+
+    print('Number of no post game:',len(no_post_game)) # Should be zero
     print("Number of games found in this interval: ", len(output_dict))
-    return output_dict
+    return output_dict, no_post_game
 
-
-def update_db(games, db):
+def update_db(games, no_post_games, db):
     """
     Takes dictionary of games and adds to the db
     """
@@ -264,7 +270,8 @@ def update_db(games, db):
                         games (
                         game_id string, --Only an int if you want to do math with it
                         date string,
-                        thread string,
+                        game_thread string,
+                        postgame_thread string,
                         home string,
                         away string,
                         winner string,
@@ -276,7 +283,6 @@ def update_db(games, db):
                         );
                         """)
         conn.commit()
-
     except sqlite3.OperationalError:
         # Totally fine that table already exists
         pass
@@ -289,10 +295,18 @@ def update_db(games, db):
             temp.append(x)
         game_list.append(temp)
 
+    for game in no_post_games:
+        # replace game_id with 0 - other info from above:
+        # [date, thread.id, 'None', home, away, 'None', thread.score]
+        temp = ['0']
+        temp.extend(game)
+        game_list.append(temp)
+
     curr.executemany("""INSERT INTO games
                     (game_id,
                     date,
-                    thread,
+                    game_thread,
+                    postgame_thread,
                     home,
                     away,
                     winner,
@@ -302,21 +316,18 @@ def update_db(games, db):
                     approx_away_fans,
                     approx_impartial_fans)
                     VALUES
-                    (?,?,?,?,?,?,?,0,0,0,0);
+                    (?,?,?,?,?,?,?,?,0,0,0,0);
                     """, game_list)
-
     conn.commit()
     conn.close()
-
-
 
 if __name__ == '__main__':
     # Input variables
     # Could make this a command line script
-    db = '~/data/cfb_game_db.sqlite3'
+    db = '/data/cfb_game_db.sqlite3'
     subreddit = 'cfb'
-    season_start ='9/1' # 'Month/Day' requires /
-    season_end = '9/17'
+    season_start ='8/15' # 'Month/Day' requires /
+    season_end = '1/20'
     # Postgame threads didn't really start appearing until 2014
     # In the future, I'd like to make search more flexible.
     first_year = 2014 # Parser should accept both 20XX and XX
@@ -327,9 +338,9 @@ if __name__ == '__main__':
     # Make sure we aren't doubling up on games. Uses ESPN game id to ensure
     # uniqueness. Postgame threads are supposed to contain links to box scores,
     # so we will collect them from there.
-    last_game, game_ids = collect_old_game_ids(db, True)  # Currently just passing until db is set up
-
-    # Time how long[:*] a season takes to collect limited by Reddit TOS to 1
+    #game_ids = collect_old_game_ids(db, True)  # Currently just passing until db is set up
+    game_ids = set()
+    # Time how long a season takes to collect limited by Reddit TOS to 1
     # request every 2 seconds. Approx. 4.5 minutes per CFB season
     time_start = datetime.now()
 
@@ -345,6 +356,6 @@ if __name__ == '__main__':
             print('List size: ', len(game_threads), ' Memory ', size)
         print('==========THREADS FOR {}============='.format(year))
         # Could do some parallelization here
-        valid_threads = analyze_game_thread(game_threads, game_ids)
-        update_db(valid_threads, db)
+        valid_threads, no_post_game = analyze_game_thread(game_threads, game_ids)
+        update_db(valid_threads, no_post_game, db)
     print(datetime.now() - time_start)
