@@ -66,13 +66,17 @@ if __name__ == '__main__':
         vocab = pickle.load(open('working.pkl', 'rb'))
 
     print(len(vocab))
-
+    stop_words = []
+    with open('common-english-words.csv') as f:
+        for word in f:
+            stop_words.append(word.strip())
+    print(stop_words)
     n_samples = 2000
-    n_features = 1000
-    n_components = 10
+    n_features = 100
+    n_components = 15
     n_top_words = 20
-    tfidf_vectorizer = TfidfVectorizer(ngram_range=(1, 3), max_df=0.99, min_df=0.01, max_features=n_features, stop_words='english')
-    tf_vectorizer = CountVectorizer(ngram_range=(1, 3), max_df=0.99, min_df=0.01, max_features=n_features, stop_words='english')
+    tfidf_vectorizer = TfidfVectorizer(ngram_range=(1, 3), max_df=0.99, min_df=0.01, max_features=n_features, stop_words=stop_words)
+    tf_vectorizer = CountVectorizer(ngram_range=(1, 3), max_df=0.99, min_df=0.01, max_features=n_features, stop_words=stop_words)
     # for NMF
     tfidf = tfidf_vectorizer.fit_transform(vocab)
     # for LatentDirichletAllocation
