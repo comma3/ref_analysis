@@ -32,6 +32,20 @@ def collect_game_threads(db):
     conn.close()
     return games
 
+def replace_many(to_replace, replace_with, string):
+    """
+    Replace all of the items in the to_replace list with replace_with.
+    """
+    for s in to_replace:
+        string.replace(s, replace_with)
+    return string
+
+def categorize(string):
+    string = string.lower()
+    string = replace_many(['pass interference', 'opi', 'dpi', 'interference'],'pi' ,string)
+    string = replace_many(['holding'],'hold' ,string)
+    string = replace_many(['pass interference', 'opi', 'dpi', 'interference'],'pi' ,string)
+
 def make_hashable(csr):
     """
     Couldn't hash csr. Convert to string.
@@ -39,12 +53,13 @@ def make_hashable(csr):
     string = ''
     for i in csr:
         string += str(i)
+
     return string
 
 
 def to_csr(hashable):
     """
-    Converts
+    Converts string back to csr
     """
     hashable = hashable.replace('(', '').replace(')', '').replace(',', '')
     data = np.array([list(map(float, item.split())) for item in hashable.split('\n')])
@@ -66,7 +81,7 @@ def k_means(time_stamped_vectors, k=10, max_iter=100, time_scale_factor=0.001, t
     for i in range(max_iter):
         print('Iteration:', i)
         clusters = defaultdict(list)
-        for time, datapoint in time_stamped_vectors:
+        for time, datapoint, _ in time_stamped_vectors:
             distances = [(euclidean(datapoint.todense(), center[1].todense()) + euclidean(time, center[0]) * time_scale_factor) for center in centers]
             center = centers[np.argmin(distances)]
             center = center[0], make_hashable(center[1])
@@ -131,9 +146,7 @@ if __name__ == '__main__':
         vocab = np.array([word.strip() for word in f])
     tf_vectorizer = TfidfVectorizer(vocabulary=vocab)
     #tf_vectorizer = CountVectorizer(vocabulary=vocab)
-
-    time_stamped_vectors = zip(times, tf_vectorizer.fit_transform(docs))
-
+    time_stamped_vectors = zip(times, tf_vectorizer.fit_transform(docs), docs)
     ref_related = [tsv for tsv in time_stamped_vectors if tsv[1].nnz]
 
     clusters = k_means(ref_related)
@@ -150,3 +163,8 @@ if __name__ == '__main__':
         times = [pt[0] for pt in clusters[center]]
         plt.hist(times)
     plt.show()
+
+    with open('review.txt', 'w') as f:
+        for tsv in ref_related:
+            f.write(tsv[2])
+            f.write('\n========\n')
