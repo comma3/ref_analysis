@@ -82,7 +82,6 @@ def k_means(time_stamped_vectors, k=10, max_iter=100, time_scale_factor=0.001, t
             new_center = (time/len(pts), csr_matrix(matrix/len(pts)))
             new_centers.append(tuple(new_center))
 
-
         dist = 0
         for center, new_center in zip(centers, new_centers):
             dist += euclidean(new_center[1].todense(), center[1].todense()) + euclidean(new_center[0], center[0]) * time_scale_factor
@@ -95,8 +94,7 @@ def k_means(time_stamped_vectors, k=10, max_iter=100, time_scale_factor=0.001, t
     return clusters
 
 
-
-if __name__ == '__main__':
+def load_data():
     if not os.path.isfile('working.pkl'):
         db = '/data/cfb_game_db.sqlite3'
         subreddit = 'cfb'
@@ -117,32 +115,38 @@ if __name__ == '__main__':
     else:
         documents = pickle.load(open('working.pkl', 'rb'))
 
-    vocab = []
-    with open('manual_vocab.csv') as f:
-        for word in f:
-            vocab.append(word.strip())
-    vocab = np.array(vocab)
-    tfidf_vectorizer = TfidfVectorizer(vocabulary=vocab)
-    tf_vectorizer = CountVectorizer(vocabulary=vocab)
     docs = []
     times = []
     for time, doc in documents:
         docs.append(doc)
         times.append(time)
-    time_stamped_vectors = zip(times, tf_vectorizer.fit_transform(docs))
-    ref_related = [tsv for tsv in time_stamped_vectors if tsv[1].nnz]
-    centroids = k_means(ref_related)
-    for num, centroid in enumerate(centroids):
-        print('Centroid:', num)
-        print('time:',centroid[0])
-        c_vec = to_csr(centroid[1]).todense().argsort()
-        t = to_csr(centroid[1]).todense().T
-        print(t[c_vec[:,-1:-11:-1]])
-        print(vocab[c_vec[:,-1:-11:-1]])
 
-    #kmeans.fit(time_stamped_vectors)
-    #print(len(kmeans.cluster_centers_))
-    #top_centroids = kmeans.cluster_centers_.argsort()[:,-1:-11:-1]
-    # print("\n3) top features (words) for each cluster:")
-    # for num, centroid in enumerate(top_centroids):
-    #     print("%d: %s" % (num, ", ".join(vocab[i] for i in centroid)))
+
+    return times, docs
+
+if __name__ == '__main__':
+
+    times, docs = load_data()
+    with open('manual_vocab.csv') as f:
+        vocab = np.array([word.strip() for word in f])
+    tf_vectorizer = TfidfVectorizer(vocabulary=vocab)
+    #tf_vectorizer = CountVectorizer(vocabulary=vocab)
+
+    time_stamped_vectors = zip(times, tf_vectorizer.fit_transform(docs))
+
+    ref_related = [tsv for tsv in time_stamped_vectors if tsv[1].nnz]
+
+    clusters = k_means(ref_related)
+    for key in clusters.keys():
+        print(len(clusters[key]))
+    for num, center in enumerate(clusters):
+        print('Centroid:', num)
+        print('Time:', center[0])
+        c_vec = to_csr(center[1]).todense().argsort()
+        #t = to_csr(centroid[1]).todense().T
+        #print(t[c_vec[:,-1:-11:-1]])
+        print('Top Words:', vocab[c_vec[:,-1:-11:-1]])
+        plt.scatter(center[0], 0)
+        times = [pt[0] for pt in clusters[center]]
+        plt.hist(times)
+    plt.show()
