@@ -1,5 +1,12 @@
 # Data
 *.pkl
+*.pdf
+*.odt
+*.doc
+*.docx
+
+# Writeup
+writeup/
 
 # Security
 praw.ini

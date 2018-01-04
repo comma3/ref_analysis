@@ -48,23 +48,24 @@ def categorize(string):
 
 def make_hashable(csr):
     """
-    Couldn't hash csr. Convert to string.
+    Couldn't hash csr. Convert to pickle.
     """
-    string = ''
-    for i in csr:
-        string += str(i)
+    # string = ''
+    # for i in csr:
+    #     string += str(i)
 
-    return string
+    return pickle.dumps(csr)
 
 
 def to_csr(hashable):
     """
-    Converts string back to csr
+    Converts pickle back to csr
     """
-    hashable = hashable.replace('(', '').replace(')', '').replace(',', '')
-    data = np.array([list(map(float, item.split())) for item in hashable.split('\n')])
-    return csr_matrix((data[:, 2], (data[:, 0], data[:, 1])))
-
+    # print(hashable)
+    # hashable = hashable.replace('(', '').replace(')', '').replace(',', '')
+    # data = np.array([list(map(float, item.split())) for item in hashable.split('\n')])
+    #return csr_matrix((data[:, 2], (data[:, 0], data[:, 1])))
+    return pickle.loads(hashable)
 
 def k_means(time_stamped_vectors, k=10, max_iter=100, time_scale_factor=0.001, threshold=0.1):
     """Performs k means
@@ -136,29 +137,45 @@ def load_data():
         docs.append(doc)
         times.append(time)
 
-
     return times, docs
 
 if __name__ == '__main__':
 
     times, docs = load_data()
+    #docs = load_data()
     with open('manual_vocab.csv') as f:
         vocab = np.array([word.strip() for word in f])
-    tf_vectorizer = TfidfVectorizer(vocabulary=vocab)
-    #tf_vectorizer = CountVectorizer(vocabulary=vocab)
-    time_stamped_vectors = zip(times, tf_vectorizer.fit_transform(docs), docs)
-    ref_related = [tsv for tsv in time_stamped_vectors if tsv[1].nnz]
 
-    clusters = k_means(ref_related)
+
+    #tf_vectorizer = TfidfVectorizer()
+    tf_vectorizer = CountVectorizer(vocabulary=vocab)
+    ref_related = []
+    ref_times = []
+    for time, doc in zip(times,docs):
+        for word in doc.lower().split():
+            if word in vocab:
+                ref_related.append(doc)
+                ref_times.append(time)
+                break
+    time_stamped_vectors = list(zip(ref_times, tf_vectorizer.fit_transform(ref_related), ref_related))
+
+    #ref_related = [tsv for tsv in time_stamped_vectors if tsv[1].nnz]
+    print(len(time_stamped_vectors))
+    clusters = k_means(time_stamped_vectors)
     for key in clusters.keys():
         print(len(clusters[key]))
     for num, center in enumerate(clusters):
         print('Centroid:', num)
         print('Time:', center[0])
+        #c_vec[:,-1:-11:-1]
         c_vec = to_csr(center[1]).todense().argsort()
-        #t = to_csr(centroid[1]).todense().T
+        # Check values of tfs
+        #t = to_csr(center[1]).todense().T
         #print(t[c_vec[:,-1:-11:-1]])
-        print('Top Words:', vocab[c_vec[:,-1:-11:-1]])
+        features = tf_vectorizer.get_feature_names()
+        f_list = np.array(c_vec[:,-1:-11:-1])[0].tolist()
+        top_words = [features[i] for i in f_list]
+        print('Top Words:', top_words)
         plt.scatter(center[0], 0)
         times = [pt[0] for pt in clusters[center]]
         plt.hist(times)

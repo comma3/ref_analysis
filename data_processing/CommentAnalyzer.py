@@ -11,6 +11,10 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.decomposition import NMF, LatentDirichletAllocation
 
 
+# Want to return something of the format:
+# team, rule, incorrect, strength, id
+# UNC, offsides, yes, 10, off001
+
 def collect_game_threads(db):
     """
     TODO
