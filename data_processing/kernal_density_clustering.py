@@ -1,17 +1,17 @@
 import sqlite3, os, pickle, random
+from collections import defaultdict
+from itertools import combinations
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from itertools import combinations
 
 import praw
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.cluster import KMeans, AgglomerativeClustering
+from sklearn.neighbors import KernelDensity
 from scipy.spatial.distance import euclidean
-from scipy.sparse import csr_matrix
-from collections import defaultdict
-from sklearn.metrics import silhouette_score
+
 
 def collect_game_threads(db):
     """
@@ -32,7 +32,6 @@ def collect_game_threads(db):
 
 def load_data():
     pickle_path = '../ref_analysis/working.pkl'
-    print(os.path.isfile(pickle_path))
     if not os.path.isfile(pickle_path):
         db = '/data/cfb_game_db.sqlite3'
         subreddit = 'cfb'
@@ -101,28 +100,21 @@ if __name__ == '__main__':
 
     #ref_docs = [tsv for tsv in time_stamped_vectors if tsv[1].nnz]
     print(len(time_stamped_vectors))
-    clusters = AgglomerativeClustering(n_clusters=6, linkage='ward').fit(ref_times)
-    print(clusters)
-    for key in clusters.keys():
-        print(len(clusters[key]))
-    for num, center in enumerate(clusters):
-        print('Centroid:', num)
-        print('Time:', center[0])
-        #c_vec[:,-1:-11:-1]
-        c_vec = to_csr(center[1]).todense().argsort()
-        # Check values of tfs
-        #t = to_csr(center[1]).todense().T
-        #print(t[c_vec[:,-1:-11:-1]])
-        features = tf_vectorizer.get_feature_names()
-        f_list = np.array(c_vec[:,-1:-11:-1])[0].tolist()
-        top_words = [features[i] for i in f_list]
-        print('Top Words:', top_words)
-        plt.scatter(center[0], 0)
-        times = [pt[0] for pt in clusters[center]]
-        plt.hist(times)
+    clusters = KernelDensity(kernel='epanechnikov', bandwidth=0.5,leaf_size=10).fit(np.array(ref_times)[:, np.newaxis])
+    print(clusters.get_params())
+    plt.hist(ref_times, bins=100, normed=True, color='r')
+
+    X_plot = np.linspace(min(ref_times), max(ref_times), 500)[:, np.newaxis]
+    #print(X_plot.shape)
+    #print(ref_times.shape)
+    log_dens = clusters.score_samples(X_plot)
+    print(log_dens)
+    plt.plot(X_plot[:, 0], np.exp(log_dens), ls='-', color='b', alpha=0.3)
+
+
     plt.show()
 
-    with open('review.txt', 'w') as f:
-        for tsv in ref_docs:
-            f.write(tsv[2])
-            f.write('\n========\n')
+    # with open('review.txt', 'w') as f:
+    #     for tsv in ref_docs:
+    #         f.write(tsv[2])
+    #         f.write('\n========\n')
