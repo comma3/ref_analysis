@@ -25,10 +25,10 @@ def print_top_words(model, feature_names, n_top_words):
 
 if __name__ == '__main__':
 
-    n_features = 1000
-    n_components = 30
+    n_features = 100
+    n_components = 100
     n_top_words = 5
-    pickle_path = '../ref_analysis/working.pkl'
+    pickle_path = '../ref_analysis/full.pkl'
 
     with open('../ref_analysis/data/manual_vocab.csv') as f:
         vocab = np.array([word.strip() for word in f])
@@ -36,15 +36,17 @@ if __name__ == '__main__':
 
     # Load the dataset and vectorize it.
     print("Loading dataset...")
-    _, docs = load_data(n_games=20, pickle_path=pickle_path)
+    docs = load_data(n_games=300, pickle_path=pickle_path)
+    # data = []
+    # for doc in docs:
+    #     for word in doc.lower().split():
+    #         if word in vocab:
+    #             data.append(doc)
+    #             break
     data = []
-    for doc in docs:
-        for word in doc.lower().split():
-            if word in vocab:
-                data.append(doc)
-                break
-
-    #data = [doc[1] for doc in dataset]
+    for game in docs:
+        for doc in game:
+            data.append(doc[1])
 
     # Use tf-idf features for NMF.
     print("Extracting tf-idf features for NMF...")

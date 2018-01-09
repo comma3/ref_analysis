@@ -1,17 +1,19 @@
-import sqlite3, os, pickle, random
+import sqlite3, os, pickle, random, time
 import praw
 
-def load_data(pickle_path='', n_games=1):
+def load_data(pickle_path='', overwrite=False, n_games=1):
 
-    if not os.path.isfile(pickle_path):
+    if not os.path.isfile(pickle_path) or overwrite:
         db = '/data/cfb_game_db.sqlite3'
         subreddit = 'cfb'
         bot_params = 'bot1' # These are collected from praw.ini
         reddit = praw.Reddit(bot_params)
         threads = collect_game_threads(db, n_games)
         print(threads)
+        print('Number of threads: ', len(threads))
         documents = []
-        for thread in threads:
+        start = time.time()
+        for i, thread in enumerate(threads):
             print('working on thread:', thread)
             submission = reddit.submission(id=thread[0])
             submission.comment_sort = 'new'
@@ -19,11 +21,15 @@ def load_data(pickle_path='', n_games=1):
             comments.replace_more()
             game_comments = []
             for top_level_comment in comments:
-                game_comments.append([top_level_comment.created_utc, top_level_comment.body])
+                game_comments.append([top_level_comment.created_utc,\
+                                        top_level_comment.body])
             documents.append(game_comments)
+            print('Thread number: {} Average time: {}'.format(i, \
+                                                    (time.time()-start)//(i+1))
         if pickle_path:
             pickle.dump(documents, open(pickle_path, 'wb'))
     else:
+        print('Loading from pickle')
         documents = pickle.load(open(pickle_path, 'rb'))
 
     return documents
@@ -32,15 +38,25 @@ def collect_game_threads(db, n_games=1):
     """
     TODO
     """
-    conn = sqlite3.connect(db)
-    curr = conn.cursor()
-    curr.execute("""SELECT
+    if n_games:
+        query = """SELECT
                     game_thread
                     FROM
                     games
                     LIMIT
                     {}
-                    """.format(n_games))
+                    """.format(n_games)
+    else:
+        query = """SELECT
+                    game_thread
+                    FROM
+                    games
+                    """
+
+
+    conn = sqlite3.connect(db)
+    curr = conn.cursor()
+    curr.execute(query)
     games = curr.fetchall()
     conn.close()
     return games
