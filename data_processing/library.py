@@ -8,6 +8,7 @@ def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
     bot_params are collected from ~/.config/praw.ini
     """
     if not os.path.isfile(pickle_path) or overwrite:
+        print('Collecting data from reddit')
         reddit = praw.Reddit(bot_params)
         threads = collect_game_threads(db, n_games)
         if verbose:
@@ -34,12 +35,14 @@ def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
             pickle.dump(game_documents, open(pickle_path, 'wb'))
     else:
         if verbose:
-            print('Loading from pickle')
+            print('Loading data from pickle')
         game_documents = pickle.load(open(pickle_path, 'rb'))
 
+    if verbose:
+        print('Finished loading data!')
     return game_documents # list (games) of lists of comments
 
-def collect_game_threads(db, n_games=1):
+def collect_game_threads(db, n_games):
     """
     TODO
     """
@@ -71,3 +74,7 @@ def replace_many(to_replace, replace_with, string):
     for s in to_replace:
         string.replace(s, replace_with)
     return string
+
+
+if __name__ == '__main__':
+    _ = load_data(n_games=1000, pickle_path='../ref_analysis/big_1000.pkl', overwrite=True)

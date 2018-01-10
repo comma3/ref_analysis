@@ -22,19 +22,20 @@ def print_top_words(model, feature_names, n_top_words):
         print(message)
     print()
 
-
-def do_lda_and_NMF(data, n_features=100, n_components=1000, n_top_words=10):
+def do_NMF(data, n_features=100, n_components=100, n_top_words=10, \
+            stop_words='english', verbose=True):
     """
     """
+    if verbose:
+        print('Starting vectorizer fits...')
+        print('TFIDF...')
     # Use tf-idf features for NMF.
     tfidf_vectorizer = TfidfVectorizer(max_features=n_features, \
-                                stop_words='english', max_df=0.95, min_df=0.01)
+                                stop_words=stop_words, max_df=0.95, min_df=0.01)
     tfidf = tfidf_vectorizer.fit_transform(data)
-    # Use tf (raw term count) features for LDA.
-    tf_vectorizer = CountVectorizer(max_features=n_features, \
-                                stop_words='english', max_df=0.95, min_df=0.01)
-    tf = tf_vectorizer.fit_transform(data)
 
+    if verbose:
+        print('Fitting NMF..')
     # Fit the NMF model(Frobenius norm) with tf-idf features
     nmf = NMF(n_components=n_components, random_state=1,
               alpha=.1, l1_ratio=.5)
@@ -42,7 +43,6 @@ def do_lda_and_NMF(data, n_features=100, n_components=1000, n_top_words=10):
     tfidf_feature_names = tfidf_vectorizer.get_feature_names()
     print("\nTopics in NMF model (generalized Kullback-Leibler divergence):")
     print_top_words(nmf, tfidf_feature_names, n_top_words)
-
     # Fit the NMF model (generalized Kullback-Leibler divergence)
     nmf = NMF(n_components=n_components, random_state=1,
               beta_loss='kullback-leibler', solver='mu', max_iter=1000, alpha=.1,
@@ -52,6 +52,18 @@ def do_lda_and_NMF(data, n_features=100, n_components=1000, n_top_words=10):
     print("\nTopics in NMF model (generalized Kullback-Leibler divergence):")
     print_top_words(nmf, tfidf_feature_names, n_top_words)
 
+
+def do_LDA(data, n_features=100, n_components=10, n_top_words=10, \
+            stop_words='english', verbose=True):
+    """
+    """
+    if verbose:
+        print('Starting vectorizer fits...')
+        print('CountVectorizer...')
+    # Use tf (raw term count) features for LDA.
+    tf_vectorizer = CountVectorizer(max_features=n_features, \
+                                stop_words=stop_words, max_df=0.95, min_df=0.01)
+    tf = tf_vectorizer.fit_transform(data)
     lda = LatentDirichletAllocation(n_components=n_components, max_iter=5,
                                     learning_method='online',
                                     learning_offset=50.,
@@ -64,9 +76,12 @@ def do_lda_and_NMF(data, n_features=100, n_components=1000, n_top_words=10):
 if __name__ == '__main__':
     pickle_path = '../ref_analysis/full.pkl'
 
+    stop_words = []
+    with open('../ref_analysis/data/common-english-words.csv') as f:
+        for word in f:
+            stop_words.append(word.strip())
+    print(stop_words)
 
-    # Load the dataset and vectorize it.
-    print("Loading dataset...")
     docs = load_data(n_games=300, pickle_path=pickle_path)
     # data = []
     # for doc in docs:
@@ -79,4 +94,5 @@ if __name__ == '__main__':
         for doc in game:
             data.append(doc[1])
 
-    do_lda_and_NMF(data)
+    #do_NMF(data)
+    do_LDA(data)

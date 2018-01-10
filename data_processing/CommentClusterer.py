@@ -11,6 +11,7 @@ from scipy.spatial.distance import euclidean, cosine
 from scipy.sparse import csr_matrix
 
 from library import load_data
+from lda import do_LDA, do_NMF
 
 
 class CommentClusterer(object):
@@ -24,7 +25,6 @@ class CommentClusterer(object):
         self.print_figs = print_figs
         self.verbose = verbose
         self.vectorizer = vectorizer
-
 
         self.distance=distance
         self.vocab = vocab
@@ -188,7 +188,7 @@ class CommentClusterer(object):
 
 
 if __name__ == '__main__':
-    pickle_path = '../ref_analysis/working.pkl'
+    pickle_path = '../ref_analysis/full.pkl'
     with open('../ref_analysis/data/manual_vocab.csv') as f:
         vocab = np.array([word.strip() for word in f])
     documents = load_data(pickle_path=pickle_path, n_games=10)
@@ -196,4 +196,4 @@ if __name__ == '__main__':
     clusterer.fit(documents)
 
     grouped_docs = clusterer.get_cluster_docs()
-    print(grouped_docs[5])
+    do_LDA(grouped_docs, n_features=500, n_components=30)
