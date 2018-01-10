@@ -1,16 +1,13 @@
-# From sklearn
+# Modified from sklearn
 # Author: Olivier Grisel <olivier.grisel@ensta.org>
 #         Lars Buitinck
 #         Chyi-Kwei Yau <chyikwei.yau@gmail.com>
 # License: BSD 3 clause
 import os, pickle
 import numpy as np
-import sqlite3
 
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import NMF, LatentDirichletAllocation
-
-import praw
 
 from library import load_data
 
@@ -29,10 +26,8 @@ if __name__ == '__main__':
     n_components = 100
     n_top_words = 5
     pickle_path = '../ref_analysis/full.pkl'
-
     with open('../ref_analysis/data/manual_vocab.csv') as f:
         vocab = np.array([word.strip() for word in f])
-
 
     # Load the dataset and vectorize it.
     print("Loading dataset...")
@@ -51,13 +46,11 @@ if __name__ == '__main__':
     # Use tf-idf features for NMF.
     print("Extracting tf-idf features for NMF...")
     tfidf_vectorizer = TfidfVectorizer(max_features=n_features, stop_words='english')
-
     tfidf = tfidf_vectorizer.fit_transform(data)
 
     # Use tf (raw term count) features for LDA.
     print("Extracting tf features for LDA...")
     tf_vectorizer = CountVectorizer(max_features=n_features, stop_words='english')
-
     tf = tf_vectorizer.fit_transform(data)
 
     # Fit the NMF model
