@@ -13,7 +13,7 @@ def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
         if verbose:
             print(threads)
             print('Number of threads: ', len(threads))
-        documents = []
+        game_documents = []
         start = time.time()
         for i, thread in enumerate(threads):
             if verbose:
@@ -26,18 +26,18 @@ def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
             for top_level_comment in comments:
                 game_comments.append([top_level_comment.created_utc,\
                                         top_level_comment.body])
-            documents.append(game_comments)
+            game_documents.append(game_comments)
             if verbose:
                 print('Thread number: {} Average time: {}'.format(i, \
-                                                    (time.time()-start)//(i+1))
+                                                    (time.time()-start)//(i+1)))
         if pickle_path:
-            pickle.dump(documents, open(pickle_path, 'wb'))
+            pickle.dump(game_documents, open(pickle_path, 'wb'))
     else:
         if verbose:
             print('Loading from pickle')
-        documents = pickle.load(open(pickle_path, 'rb'))
+        game_documents = pickle.load(open(pickle_path, 'rb'))
 
-    return documents
+    return game_documents # list (games) of lists of comments
 
 def collect_game_threads(db, n_games=1):
     """
