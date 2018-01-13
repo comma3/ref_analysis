@@ -168,8 +168,9 @@ class CommentClusterer(object):
     def _loop_k_means(self, max_k=20):
         """
         """
-
+        loops = 0
         for game_vector, tf_vectorizer in self.game_vectors:
+            loops+=1
             # zip iterator gets used up, but we reuse this list many times
             game_vector = list(game_vector)
             sil_scores = []
@@ -185,10 +186,14 @@ class CommentClusterer(object):
             # to a list. len(clusters) will give k, so its not stored)
             sil_scores.sort()
             try:
-                self.game_clusters.append((sil_score[0][1], tf_vectorizer))
+                self.game_clusters.append((sil_scores[-1][1], tf_vectorizer))
             except IndexError:
-                print("why aren't there clusters?")
+                print("\n\nwhy aren't there clusters?")
                 print(len(sil_scores))
+                continue # Avoid trying to print next line
+            print('\n\nSilhouette Score: {:.3f}\n\n'.format(sil_scores[-1][0]))
+            if loops > 5:
+                break
 
     def print_clusters(self):
         """
