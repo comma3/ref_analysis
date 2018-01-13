@@ -56,6 +56,13 @@ def do_NMF(data, n_features=100, n_components=100, n_top_words=10, \
 def do_LDA(data, n_features=100, n_components=10, n_top_words=10, \
             stop_words='english', verbose=True):
     """
+    Performs Latent Dirichlet Allocation
+    ---------------
+    INPUT
+    ---------------
+    n_features: int - number of vectorizer words
+    n_components: int - number of LDA Topics
+
     """
     if verbose:
         print('Starting vectorizer fits...')
@@ -74,13 +81,13 @@ def do_LDA(data, n_features=100, n_components=10, n_top_words=10, \
     print_top_words(lda, tf_feature_names, n_top_words)
 
 if __name__ == '__main__':
-    pickle_path = '../ref_analysis/full.pkl'
+    pickle_path = '../ref_analysis/big_1000.pkl'
 
     stop_words = []
     with open('../ref_analysis/data/common-english-words.csv') as f:
         for word in f:
             stop_words.append(word.strip())
-    print(stop_words)
+    #print(stop_words)
 
     docs = load_data(n_games=300, pickle_path=pickle_path)
     # data = []
@@ -95,4 +102,4 @@ if __name__ == '__main__':
             data.append(doc[1])
 
     #do_NMF(data)
-    do_LDA(data)
+    do_LDA(data, n_features=1000, n_components=30)

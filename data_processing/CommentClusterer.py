@@ -19,7 +19,7 @@ class CommentClusterer(object):
     """
 
     def __init__(self, vocab=None, vectorizer='count', distance=euclidean, \
-                k=10,max_iter=100, time_scale_factor=0.001, threshold=0.1, \
+    max_iter=100, time_scale_factor=0.001, threshold=0.1, \
                 verbose=True, print_figs=False):
 
         self.print_figs = print_figs
@@ -28,7 +28,6 @@ class CommentClusterer(object):
 
         self.distance=distance
         self.vocab = vocab
-        self.k = k
         self.max_iter = max_iter
         self.time_scale_factor = time_scale_factor
         self.threshold = threshold
@@ -50,8 +49,42 @@ class CommentClusterer(object):
         """
         return pickle.loads(hashable)
 
+    def _calc_distances(self, clusters):
+        """
+        Precaluclate custom distances for silhouette score.
+        """
+        #TODO: move this calculation out of _get_silhouette_score and only call it once for each game cluster. Result can be passed into _get_silhouette_score as an argument
+        # Points might(probably) move around during cluster assignment though, check kmean
 
-    def _k_means(self, game_vector):
+
+        return distances
+
+    def _get_silhouette_score(self, clusters):
+        """
+        Determines sil_score for clustering
+        """
+        # Careful with names here: points is the points from the clusters and data is the combined points
+
+        # Label the points in each cluster and add all of the points to a single list for distance calculation
+        labels = []
+        combined_points = []
+        tot_points = 0
+        for label, cluster_points in enumerate(clusters.values()):
+            print(len(cluster_points))
+            i = len(cluster_points)
+            tot_points += i
+            for cluster_point in cluster_points:
+                combined_points.append(cluster_point)
+                labels.append(label)
+
+        # I bet there is a np way to do this better
+        # Seems decently fast though...
+        distances = [[self.distance(p1[0], p2[0]) * self.time_scale_factor + self.distance(p1[1].todense(), p2[1].todense()) for p2 in combined_points] for p1 in combined_points])
+
+        return silhouette_score(distances, labels, metric="precomputed")
+
+
+    def _k_means(self, game_vector, k=10):
         """Performs custom k means
 
         Args:
@@ -63,14 +96,14 @@ class CommentClusterer(object):
         - clusters - dict mapping cluster centers to observations
         """
 
-        game_vector = list(game_vector) # zip iterator gets used up
-
         try:
-            centers = [tuple(pt) for pt in random.sample(game_vector, self.k)]
+            centers = [tuple(pt) for pt in random.sample(game_vector, k)]
         except ValueError:
             return
         for i in range(self.max_iter):
             clusters = defaultdict(list)
+            # Calculate the distance of each point to each center and assignment
+            # the point to the cluster with that center.
             for time, tfs, doc in game_vector:
                 distances = [(self.distance(tfs.todense(), center[1].todense())\
                             + self.distance(time, center[0]) * \
@@ -79,6 +112,8 @@ class CommentClusterer(object):
                 center = center[0], self._make_hashable(center[1])
                 clusters[center].append((time,tfs,doc))
             new_centers = []
+            # Reculaate the centers of the clusters based on the points assigned
+            # to each cluster
             for center, pts in clusters.items():
                 time = 0
                 matrix = np.zeros(pts[0][1].shape[1]).T
@@ -96,9 +131,10 @@ class CommentClusterer(object):
             if self.verbose:
                 print('Iteration:', i)
                 print('Centroid movement:', dist)
-                if dist < self.threshold:
+            if dist < self.threshold:
+                if self.verbose:
                     print('Converged!')
-                    break
+                break
 
         return clusters
 
@@ -106,10 +142,9 @@ class CommentClusterer(object):
         """
         Adds term frequency vector to game documents.
 
-        Optionally will filter only officiating related comments if a vocabulary
-        is provided.
+        Optionally will filter only officiating related comments if a vocabulary is provided.
         """
-
+        i = 0
         for game in self.documents:
             if self.vectorizer == 'count':
                 tf_vectorizer = CountVectorizer()
@@ -131,15 +166,21 @@ class CommentClusterer(object):
             try:
                 self.game_vectors.append((zip(ref_times, tf_vectorizer.fit_transform(ref_related), ref_related), tf_vectorizer))
             except ValueError:
-                print(game)
+                #print(game)
                 print('Game had no comments that passed vocab filter!')
+                i+=1
 
-    def loop_k_means(self):
+        print('{} games did not have any ref comments!'.format(i))
+
+    def loop_k_means(self, max_k=20):
         """
         """
 
         for game_vector, tf_vectorizer in self.game_vectors:
-            clusters = self._k_means(game_vector)
+            game_vector = list(game_vector) # zip iterator gets used up, but we reuse this list many times
+            for i in range(2, max_k):
+                clusters = self._k_means(game_vector, k=i)
+                print(self._get_silhouette_score(clusters))
             if clusters:
                 self.game_clusters.append((clusters, tf_vectorizer))
 
@@ -188,7 +229,7 @@ class CommentClusterer(object):
 
 
 if __name__ == '__main__':
-    pickle_path = '../ref_analysis/full.pkl'
+    pickle_path = '../ref_analysis/big_1000.pkl'
     with open('../ref_analysis/data/manual_vocab.csv') as f:
         vocab = np.array([word.strip() for word in f])
     documents = load_data(pickle_path=pickle_path, n_games=10)
