@@ -36,6 +36,39 @@ class CommentClusterer(object):
         self.game_vectors = []
         self.documents = None
 
+    def _add_tf_vectors(self):
+        """
+        Adds term frequency vector to game documents.
+
+        Optionally will filter only officiating related comments if a vocabulary is provided.
+        """
+        i = 0
+        for game in self.documents:
+            if self.vectorizer == 'count':
+                tf_vectorizer = CountVectorizer()
+            else:
+                tf_vectorizer = TfidfVectorizer()
+
+            ref_related = []
+            ref_times = []
+            for time, doc in game:
+                for word in doc.lower().split():
+                    if any(self.vocab):
+                        if word in self.vocab:
+                            ref_related.append(doc)
+                            ref_times.append(time)
+                            break
+                    else:
+                        ref_related.append(doc)
+                        ref_times.append(time)
+            try:
+                self.game_vectors.append((zip(ref_times, tf_vectorizer.fit_transform(ref_related), ref_related), tf_vectorizer))
+            except ValueError:
+                #print(game)
+                #print('Game had no comments that passed vocab filter!')
+                i+=1
+
+        print('{} games did not have any ref comments!'.format(i))
 
     def _make_hashable(self, csr):
         """
@@ -49,28 +82,16 @@ class CommentClusterer(object):
         """
         return pickle.loads(hashable)
 
-    def _calc_distances(self, clusters):
-        """
-        Precaluclate custom distances for silhouette score.
-        """
-        #TODO: move this calculation out of _get_silhouette_score and only call it once for each game cluster. Result can be passed into _get_silhouette_score as an argument
-        # Points might(probably) move around during cluster assignment though, check kmean
-
-
-        return distances
-
     def _get_silhouette_score(self, clusters):
         """
         Determines sil_score for clustering
         """
         # Careful with names here: points is the points from the clusters and data is the combined points
-
         # Label the points in each cluster and add all of the points to a single list for distance calculation
         labels = []
         combined_points = []
         tot_points = 0
         for label, cluster_points in enumerate(clusters.values()):
-            print(len(cluster_points))
             i = len(cluster_points)
             tot_points += i
             for cluster_point in cluster_points:
@@ -79,7 +100,11 @@ class CommentClusterer(object):
 
         # I bet there is a np way to do this better
         # Seems decently fast though...
-        distances = [[self.distance(p1[0], p2[0]) * self.time_scale_factor + self.distance(p1[1].todense(), p2[1].todense()) for p2 in combined_points] for p1 in combined_points])
+        # Needs to be reculculated for every k because the points get shuffled
+        # by kmeans so the distance matrix will change with k.
+        distances = [[self.distance(p1[0], p2[0]) * self.time_scale_factor + \
+                    self.distance(p1[1].todense(), p2[1].todense()) \
+                    for p2 in combined_points] for p1 in combined_points]
 
         return silhouette_score(distances, labels, metric="precomputed")
 
@@ -138,51 +163,32 @@ class CommentClusterer(object):
 
         return clusters
 
-    def add_tf_vectors(self):
-        """
-        Adds term frequency vector to game documents.
 
-        Optionally will filter only officiating related comments if a vocabulary is provided.
-        """
-        i = 0
-        for game in self.documents:
-            if self.vectorizer == 'count':
-                tf_vectorizer = CountVectorizer()
-            else:
-                tf_vectorizer = TfidfVectorizer()
 
-            ref_related = []
-            ref_times = []
-            for time, doc in game:
-                for word in doc.lower().split():
-                    if any(self.vocab):
-                        if word in self.vocab:
-                            ref_related.append(doc)
-                            ref_times.append(time)
-                            break
-                    else:
-                        ref_related.append(doc)
-                        ref_times.append(time)
-            try:
-                self.game_vectors.append((zip(ref_times, tf_vectorizer.fit_transform(ref_related), ref_related), tf_vectorizer))
-            except ValueError:
-                #print(game)
-                print('Game had no comments that passed vocab filter!')
-                i+=1
-
-        print('{} games did not have any ref comments!'.format(i))
-
-    def loop_k_means(self, max_k=20):
+    def _loop_k_means(self, max_k=20):
         """
         """
 
         for game_vector, tf_vectorizer in self.game_vectors:
-            game_vector = list(game_vector) # zip iterator gets used up, but we reuse this list many times
+            # zip iterator gets used up, but we reuse this list many times
+            game_vector = list(game_vector)
+            sil_scores = []
+            if len(game_vector) <= max_k:
+                print('Very few commments. Skipping.')
+                continue
             for i in range(2, max_k):
                 clusters = self._k_means(game_vector, k=i)
-                print(self._get_silhouette_score(clusters))
-            if clusters:
-                self.game_clusters.append((clusters, tf_vectorizer))
+                sil_score = self._get_silhouette_score(clusters)
+                # Add the silhouette score and clustering to a list
+                sil_scores.append((sil_score, clusters))
+            # Find the k with the lowest silhouette_score and add the clusters
+            # to a list. len(clusters) will give k, so its not stored)
+            sil_scores.sort()
+            try:
+                self.game_clusters.append((sil_score[0][1], tf_vectorizer))
+            except IndexError:
+                print("why aren't there clusters?")
+                print(len(sil_scores))
 
     def print_clusters(self):
         """
@@ -221,8 +227,8 @@ class CommentClusterer(object):
         """
         """
         self.documents = documents
-        self.add_tf_vectors()
-        self.loop_k_means()
+        self._add_tf_vectors()
+        self._loop_k_means()
         if self.verbose or self.print_figs:
             self.print_clusters()
 
