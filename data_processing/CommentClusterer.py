@@ -72,6 +72,10 @@ class CommentClusterer(object):
                     # No flair
                     continue
                 [self.flairs.add(f.strip().lower()) for f in fs]
+        # This will only store flair list if it doesn't exist.
+        # Change the behavior of this whole thing in the future
+        if not os.path.isfile('flairs.pkl'):
+            pickle.dump(self.flairs, open('flairs.pkl', 'wb'))
 
     def _add_tf_vectors(self):
         """
@@ -161,7 +165,6 @@ class CommentClusterer(object):
         except ValueError:
             return
 
-
         for i in range(self.max_iter):
             clusters = defaultdict(list)
             # Calculate the distance of each point to each center and assignment
@@ -202,8 +205,6 @@ class CommentClusterer(object):
                 break
 
         return clusters
-
-
 
     def _loop_k_means(self, max_k=20):
         """
@@ -294,18 +295,18 @@ class CommentClusterer(object):
 
 
 if __name__ == '__main__':
-    pickle_path = '../ref_analysis/big_100.pkl'
+    pickle_path = '../ref_analysis/full.pkl'
     with open('../ref_analysis/data/manual_vocab.csv') as f:
         vocab = [word.strip() for word in f]
     with open('../ref_analysis/data/common-english-words.csv') as f:
         stop_words = [word.strip() for word in f]
     #print(stop_words)
-    documents = load_data(pickle_path=pickle_path, n_games=100, overwrite=False)
+    documents = load_data(pickle_path=pickle_path, n_games=None, overwrite=True)
     print(len(documents))
     clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, time_scale_factor=0.1, print_figs=True, ngram_range=(1,3))
     clusterer.fit(documents)
 
     grouped_docs = clusterer.get_cluster_docs()
-    model = do_LDA(grouped_docs, n_features=500, n_components=20, stop_words=stop_words, ngram_range=(1,5))
+    model = do_LDA(grouped_docs, n_features=5000, n_components=20, stop_words=stop_words, ngram_range=(1,5))
 
     pickle.dump(model, open('lda_model.pkl', 'wb'))
