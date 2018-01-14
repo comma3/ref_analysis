@@ -10,8 +10,13 @@ from sklearn.metrics import silhouette_score
 from scipy.spatial.distance import euclidean, cosine
 from scipy.sparse import csr_matrix
 
-from library import load_data
+
+
+from library import load_data, LemmaTokenizer
 from lda import do_LDA, do_NMF
+
+from nltk import word_tokenize
+from nltk.stem import WordNetLemmatizer
 
 
 class CommentClusterer(object):
@@ -20,11 +25,16 @@ class CommentClusterer(object):
 
     def __init__(self, vocab=None, vectorizer='count', distance=euclidean, \
                 max_iter=100, time_scale_factor=0.005, threshold=0.1, \
-                verbose=True, print_figs=False, stop_words='english'):
+                verbose=True, print_figs=False, stop_words='english', \
+                ngram_range=(1,1), tokenizer=LemmaTokenizer()):
 
         self.print_figs = print_figs
         self.verbose = verbose
+
         self.vectorizer = vectorizer
+        self.tokenizer = tokenizer
+
+        self.ngram_range = ngram_range
 
         self.distance=distance
         self.vocab = vocab
@@ -72,9 +82,9 @@ class CommentClusterer(object):
         i = 0
         for game in self.documents:
             if self.vectorizer.lower() == 'count':
-                tf_vectorizer = CountVectorizer(stop_words=self.stop_words)
+                tf_vectorizer = CountVectorizer(stop_words=self.stop_words, tokenizer=self.tokenizer)
             else:
-                tf_vectorizer = TfidfVectorizer(stop_words=self.stop_words)
+                tf_vectorizer = TfidfVectorizer(stop_words=self.stop_words, tokenizer=self.tokenizer)
 
             ref_related = []
             if any(self.vocab):
@@ -257,7 +267,10 @@ class CommentClusterer(object):
         """
         docs = []
         for clusters, _ in self.game_clusters:
-            for center in clusters.items():
+            for center in clusters.values():
+                for pt in center:
+                    print(pt)
+                    break
                 docs.append(' '.join([pt[1].body for pt in center]))
         return docs
 
@@ -271,18 +284,25 @@ class CommentClusterer(object):
         if self.verbose or self.print_figs:
             self.print_clusters()
 
+    def refit(self):
+        """
+        Using the LDA generated from the rough fit, perform a better fit with
+        more clear classifications.
+        """
+        pass
+
 
 
 if __name__ == '__main__':
     pickle_path = '../ref_analysis/big_100.pkl'
     with open('../ref_analysis/data/manual_vocab.csv') as f:
-        vocab = np.array([word.strip() for word in f])
+        vocab = [word.strip() for word in f]
     with open('../ref_analysis/data/common-english-words.csv') as f:
         stop_words = [word.strip() for word in f]
     #print(stop_words)
     documents = load_data(pickle_path=pickle_path, n_games=100)
-    clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, time_scale_factor=0.015, print_figs=True)
+    clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, time_scale_factor=0.05, print_figs=True, ngram_range=(1,3))
     clusterer.fit(documents)
 
     grouped_docs = clusterer.get_cluster_docs()
-    do_LDA(grouped_docs, n_features=1000, n_components=30, stop_words=stop_words)
+    do_LDA(grouped_docs, n_features=1000, n_components=30, stop_words=stop_words, ngram_range=(1,5))

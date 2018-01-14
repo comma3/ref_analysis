@@ -1,6 +1,19 @@
 import sqlite3, os, pickle, random, time
 import praw
 
+from nltk import word_tokenize
+from nltk.stem import WordNetLemmatizer
+
+class LemmaTokenizer(object):
+    """
+    Implemenation of a tokenizer/lemmatizer from sklearn's documentation.
+    """
+    def __init__(self):
+        self.wnl = WordNetLemmatizer()
+    def __call__(self, doc):
+        return [self.wnl.lemmatize(t) for t in word_tokenize(doc)]
+
+
 def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
                 db='/data/cfb_game_db.sqlite3', bot_params='bot1', \
                 verbose=True):

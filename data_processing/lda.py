@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import NMF, LatentDirichletAllocation
 
-from library import load_data
+from library import load_data, LemmaTokenizer
 
 def print_top_words(model, feature_names, n_top_words):
     """
@@ -54,7 +54,8 @@ def do_NMF(data, n_features=100, n_components=100, n_top_words=10, \
 
 
 def do_LDA(data, n_features=100, n_components=10, n_top_words=10, \
-            stop_words='english', max_iter=5, verbose=True):
+            stop_words='english', max_iter=5, verbose=True, ngram_range=(1,1),
+            tokenizer=LemmaTokenizer()):
     """
     Performs Latent Dirichlet Allocation
     ---------------
@@ -69,7 +70,8 @@ def do_LDA(data, n_features=100, n_components=10, n_top_words=10, \
         print('CountVectorizer...')
     # Use tf (raw term count) features for LDA.
     tf_vectorizer = CountVectorizer(max_features=n_features, \
-                                stop_words=stop_words, max_df=0.95, min_df=0.01)
+                                stop_words=stop_words, ngram_range=ngram_range,\
+                                max_df=0.95, min_df=0.01, tokenizer=tokenizer)
     tf = tf_vectorizer.fit_transform(data)
     lda = LatentDirichletAllocation(n_components=n_components, max_iter=max_iter,
                                     learning_method='online',
