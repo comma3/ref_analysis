@@ -26,8 +26,9 @@ def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
     --------------
     OUTPUT
     --------------
-    documents:  List of Lists - Each list in the list contains all of the top
-                    level comments from a game.
+    documents:  List of praw comment objects - Each objects contains all of the
+                    top level comments from a game. Should be able to connect to
+                    reddit and get comment forrest reply.
 
     """
     if not os.path.isfile(pickle_path) or overwrite:
@@ -46,11 +47,8 @@ def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
             submission.comment_sort = 'new'
             comments = submission.comments
             comments.replace_more()
-            game_comments = []
-            for top_level_comment in comments:
-                game_comments.append([top_level_comment.created_utc,\
-                                        top_level_comment.body])
-            game_documents.append(game_comments)
+            game_documents.append([top_level_comment \
+                                    for top_level_comment in comments])
             if verbose:
                 print('Thread number: {} Average time: {}'.format(i, \
                                                     (time.time()-start)//(i+1)))
@@ -63,7 +61,7 @@ def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
 
     if verbose:
         print('Finished loading data!')
-    return game_documents # list (games) of lists of comments
+    return game_documents # list (games) of lists of praw comment objects
 
 def collect_game_threads(db, n_games):
     """
