@@ -54,7 +54,7 @@ def do_NMF(data, n_features=100, n_components=100, n_top_words=10, \
 
 
 def do_LDA(data, n_features=100, n_components=10, n_top_words=10, \
-            stop_words='english', max_iter=5, verbose=True, ngram_range=(1,1),
+            stop_words='english', max_iter=20, verbose=True, ngram_range=(1,1),
             tokenizer=LemmaTokenizer()):
     """
     Performs Latent Dirichlet Allocation
@@ -71,11 +71,10 @@ def do_LDA(data, n_features=100, n_components=10, n_top_words=10, \
     # Use tf (raw term count) features for LDA.
     tf_vectorizer = CountVectorizer(max_features=n_features, \
                                 stop_words=stop_words, ngram_range=ngram_range,\
-                                max_df=0.95, min_df=0.01, tokenizer=tokenizer)
+                                tokenizer=tokenizer)
     tf = tf_vectorizer.fit_transform(data)
     lda = LatentDirichletAllocation(n_components=n_components, max_iter=max_iter,
                                     learning_method='online',
-                                    learning_offset=50.,
                                     random_state=0)
     lda.fit(tf)
     tf_feature_names = tf_vectorizer.get_feature_names()

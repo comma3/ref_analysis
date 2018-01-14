@@ -23,7 +23,7 @@ class CommentClusterer(object):
     """
     """
 
-    def __init__(self, vocab=None, vectorizer='count', distance=euclidean, \
+    def __init__(self, vocab=None, vectorizer='tfidf', distance=euclidean, \
                 max_iter=100, time_scale_factor=0.005, threshold=0.1, \
                 verbose=True, print_figs=False, stop_words='english', \
                 ngram_range=(1,1), tokenizer=LemmaTokenizer()):
@@ -156,8 +156,8 @@ class CommentClusterer(object):
         """
 
         try:
-            # Initialize centers and get time from comment
-            centers = [(pt[0], pt[1].created_utc)  for pt in random.sample(game_vector, k)]
+            # Initialize centers and get time from comment -needs to be float
+            centers = [(pt[0], pt[1].created_utc) for pt in random.sample(game_vector, k)]
         except ValueError:
             return
 
@@ -193,11 +193,11 @@ class CommentClusterer(object):
                         center[0].todense()) + self.distance(new_center[1], \
                         center[1]) * self.time_scale_factor
             centers = new_centers
-            if self.verbose:
+            if False:#self.verbose:
                 print('Iteration:', i)
                 print('Centroid movement:', dist)
             if dist < self.threshold:
-                if self.verbose:
+                if False: #self.verbose:
                     print('Converged!')
                 break
 
@@ -208,13 +208,17 @@ class CommentClusterer(object):
     def _loop_k_means(self, max_k=20):
         """
         """
-        loops = 0
-        for game_vector, tf_vectorizer in self.game_vectors:
-            loops+=1
-            # zip iterator gets used up, but we reuse this list many times
-            game_vector = list(game_vector)
+        skips = 0
+
+        for done, (game_vector, tf_vectorizer) in enumerate(self.game_vectors):
+            # Store (sil_scores, corresponding clusters)
             sil_scores = []
+            print('{:.1f}% Complete'.format(100*done/len(self.game_vectors)))
+            # Can't fit if there are fewer clusters than data points
+            # Probably don't want to put much stock into games with fewer than
+            # max_k comments anyway
             if len(game_vector) <= max_k:
+                skips += 1
                 print('Very few commments. Skipping.')
                 continue
             for i in range(2, max_k):
@@ -225,15 +229,14 @@ class CommentClusterer(object):
             # Find the k with the lowest silhouette_score and add the clusters
             # to a list. len(clusters) will give k, so its not stored)
             sil_scores.sort()
+            print('{:.1f}% Complete'.format(100*done/len(self.game_vectors)))
             try:
                 self.game_clusters.append((sil_scores[-1][1], tf_vectorizer))
             except IndexError:
-                print("\n\nwhy aren't there clusters?")
-                print(len(sil_scores))
+                skips += 1
                 continue # Avoid trying to print next line
-            print('\n\nSilhouette Score: {:.3f}\n\n'.format(sil_scores[-1][0]))
-            if loops > 5:
-                break
+            print('Silhouette Score: {:.3f}'.format(sil_scores[-1][0]))
+        print('Skipped Clustering: {}'.format(skips))
 
     def print_clusters(self):
         """
@@ -256,9 +259,6 @@ class CommentClusterer(object):
             if self.print_figs:
                 plt.show()
             game_num += 1
-
-
-
 
     def get_cluster_docs(self):
         """
@@ -300,9 +300,12 @@ if __name__ == '__main__':
     with open('../ref_analysis/data/common-english-words.csv') as f:
         stop_words = [word.strip() for word in f]
     #print(stop_words)
-    documents = load_data(pickle_path=pickle_path, n_games=100)
-    clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, time_scale_factor=0.05, print_figs=True, ngram_range=(1,3))
+    documents = load_data(pickle_path=pickle_path, n_games=100, overwrite=False)
+    print(len(documents))
+    clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, time_scale_factor=0.1, print_figs=True, ngram_range=(1,3))
     clusterer.fit(documents)
 
     grouped_docs = clusterer.get_cluster_docs()
-    do_LDA(grouped_docs, n_features=1000, n_components=30, stop_words=stop_words, ngram_range=(1,5))
+    model = do_LDA(grouped_docs, n_features=500, n_components=20, stop_words=stop_words, ngram_range=(1,5))
+
+    pickle.dump(model, open('lda_model.pkl', 'wb'))
