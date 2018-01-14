@@ -10,7 +10,8 @@ import praw
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.decomposition import NMF, LatentDirichletAllocation
 
-from library import load_data
+from library import load_data, collect_game_threads
+from CommentClusterer import CommentClusterer
 
 # Want to return something of the format:
 # team, rule, incorrect, strength, id
@@ -38,11 +39,37 @@ class GameAnalyzer(object):
         self.away_fans = defaultdict(list)
         self.unaffiliated_fans = defaultdict(list)
 
-        self.comments = comments
-
         self.against_home = 0
         self.against_away = 0
+
+        self.clusterer = None # Actual clusters are in clusterer.scored_clusters
+
         self.lda = None
+
+        self._load_data()
+        self._get_user_scores_by_affiliation()
+        self._get_flair_set() # Maybe combine these two.
+
+    def _get_flair_set(self):
+        """
+        Updates pickle containing a set of all flairs found for this sport.
+        """
+
+        pickle_path = 'cfb_flairs.pkl'
+        if os.path.isfile(pickle_path):
+            flairs = pickle.load(open(pickle_path, 'rb'))
+        else:
+            flairs = set()
+
+        for comment in self.documents:
+            if comment.author_flair_text:
+                fs = comment.author_flair_text.split('/')
+            else: # No flair
+                continue
+            [flairs.add(f.strip().lower()) for f in fs]
+        # This will only store flair list if it doesn't exist.
+        # Change the behavior of this whole thing in the future
+        pickle.dump(flairs, open(pickle_path, 'wb'))
 
 
     def _get_user_scores_by_affiliation(self):
@@ -68,20 +95,42 @@ class GameAnalyzer(object):
 
     def _load_data(self):
         """
+        Either downloads the comments or stores them as a pickle
         """
+
+        self.documents = load_data(self.game_thread)
+
+    def find_clusters(self):
+        """
+        """
+        self.clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, \
+                        time_scale_factor=0.1, print_figs=True, ngram_range=(1,3))
+        self.clusterer.fit(self.documents)
+
+    def make_silhouette_plot(self):
+        """
+        """
+        pass
+
 
 
 if __name__ == '__main__':
-    pickle_path = '../ref_analysis/full.pkl'
+
     with open('../ref_analysis/data/manual_vocab.csv') as f:
         vocab = [word.strip() for word in f]
     with open('../ref_analysis/data/common-english-words.csv') as f:
         stop_words = [word.strip() for word in f]
     #print(stop_words)
-    documents = load_data(pickle_path=pickle_path, n_games=None, overwrite=True)
-    print(len(documents))
-    clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, time_scale_factor=0.1, print_figs=True, ngram_range=(1,3))
-    clusterer.fit(documents)
+
+    game_list = collect_game_threads()
+
+    print('Number of games in DB: {}'.format(len(game_list)))
+
+    for n, game in enumerate(game_list):
+        print(game)
+        game_id, game_thread, home, away, winner = game
+        analyzer = GameAnalyzer(game_id, game_thread, home, away, winner)
+        analyzer.find_clusters()
 
     grouped_docs = clusterer.get_cluster_docs()
     model = do_LDA(grouped_docs, n_features=5000, n_components=20, stop_words=stop_words, ngram_range=(1,5))

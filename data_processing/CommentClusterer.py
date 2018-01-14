@@ -23,11 +23,12 @@ class CommentClusterer(object):
     """
     """
 
-    def __init__(self, vocab=None, vectorizer='tfidf', distance=euclidean, \
+    def __init__(self, game_id, vocab=None, vectorizer='tfidf', distance=euclidean, \
                 max_iter=100, time_scale_factor=0.005, threshold=0.1, \
                 verbose=True, print_figs=False, stop_words='english', \
                 ngram_range=(1,1), tokenizer=LemmaTokenizer()):
 
+        self.game_id = game_id
         self.print_figs = print_figs
         self.verbose = verbose
 
@@ -44,9 +45,12 @@ class CommentClusterer(object):
         self.threshold = threshold
 
         self.game_clusters = []
-        self.game_vectors = []
+        self.game_vector = []
         self.documents = None
         self.flairs = set()
+
+        # Store (scored_clusters, corresponding clusters)
+        self.scored_clusters = []
 
     def _make_hashable(self, csr):
         """
@@ -60,22 +64,6 @@ class CommentClusterer(object):
         """
         return pickle.loads(hashable)
 
-    def _get_flair_list(self):
-        """
-        Generates a set of the unique flairs found in the comment threads.
-        """
-        for game in self.documents:
-            for comment in game:
-                if comment.author_flair_text:
-                    fs = comment.author_flair_text.split('/')
-                else:
-                    # No flair
-                    continue
-                [self.flairs.add(f.strip().lower()) for f in fs]
-        # This will only store flair list if it doesn't exist.
-        # Change the behavior of this whole thing in the future
-        if not os.path.isfile('flairs.pkl'):
-            pickle.dump(self.flairs, open('flairs.pkl', 'wb'))
 
     def _add_tf_vectors(self):
         """
@@ -83,41 +71,38 @@ class CommentClusterer(object):
 
         Optionally will filter only officiating related comments if a vocabulary is provided.
         """
-        i = 0
-        for game in self.documents:
-            if self.vectorizer.lower() == 'count':
-                tf_vectorizer = CountVectorizer(stop_words=self.stop_words, tokenizer=self.tokenizer)
-            else:
-                tf_vectorizer = TfidfVectorizer(stop_words=self.stop_words, tokenizer=self.tokenizer)
 
-            ref_related = []
-            if any(self.vocab):
-                for comment in game:
-                    for word in comment.body.lower().split():
-                        if word in self.vocab:
-                            ref_related.append(comment)
-                            break
-            else:
-                ref_related.append(comment)
+        if self.vectorizer.lower() == 'count':
+            self.tf_vectorizer = CountVectorizer(stop_words=self.stop_words, tokenizer=self.tokenizer)
+        else:
+            self.tf_vectorizer = TfidfVectorizer(stop_words=self.stop_words, tokenizer=self.tokenizer)
 
-            # Fit the vectorizer using all of the words in a game_documents
-            #print([comment.body for comment in ref_related])
-            try:
-                tf_vectorizer.fit([comment.body for comment in ref_related])
-            except ValueError:
-                # Game didn't contain any ref related events
-                i += 1
-                continue
-            tfs_and_comments = []
-            for comment in ref_related:
-                # Transform wants a list
-                tfs_and_comments.append((tf_vectorizer.transform([comment.body]),
-                                    comment))
+        ref_related = []
+        if any(self.vocab):
+            for comment in self.documents:
+                for word in comment.body.lower().split():
+                    if word in self.vocab:
+                        ref_related.append(comment)
+                        break
+        else:
+            ref_related = [comment for comment in self.documents]
 
-            # Save the comment objects, tf vectors and vectorizer by game
-            self.game_vectors.append((tfs_and_comments, tf_vectorizer))
+        # Fit the vectorizer using all of the words in a game_documents
+        #print([comment.body for comment in ref_related])
+        try:
+            self.tf_vectorizer.fit([comment.body for comment in ref_related])
+        except ValueError:
+            # Game didn't contain any ref related events
+            return None
+        tfs_and_comments = []
+        for comment in ref_related:
+            # Transform wants a list
+            tfs_and_comments.append((self.tf_vectorizer.transform([comment.body]),
+                                comment))
 
-        print('{} games did not have any events!'.format(i))
+        # Save the comment objects, tf vectors and vectorizer by game
+        self.game_vector = tfs_and_comments
+
 
     def _get_silhouette_score(self, clusters):
         """
@@ -127,10 +112,7 @@ class CommentClusterer(object):
         # Label the points in each cluster and add all of the points to a single list for distance calculation
         labels = []
         combined_points = []
-        tot_points = 0
         for label, cluster_points in enumerate(clusters.values()):
-            i = len(cluster_points)
-            tot_points += i
             for cluster_point in cluster_points:
                 combined_points.append(cluster_point)
                 labels.append(label)
@@ -147,7 +129,7 @@ class CommentClusterer(object):
         return silhouette_score(distances, labels, metric="precomputed")
 
 
-    def _k_means(self, game_vector, k):
+    def _k_means(self, k):
         """Performs custom k means
 
         Args:
@@ -161,7 +143,7 @@ class CommentClusterer(object):
 
         try:
             # Initialize centers and get time from comment -needs to be float
-            centers = [(pt[0], pt[1].created_utc) for pt in random.sample(game_vector, k)]
+            centers = [(pt[0], pt[1].created_utc) for pt in random.sample(self.game_vector, k)]
         except ValueError:
             return
 
@@ -169,7 +151,7 @@ class CommentClusterer(object):
             clusters = defaultdict(list)
             # Calculate the distance of each point to each center and assignment
             # the point to the cluster with that center.
-            for tfs, comment in game_vector:
+            for tfs, comment in self.game_vector:
                 distances = [(self.distance(tfs.todense(), center[0].todense())\
                             + self.distance(comment.created_utc, center[1]) * \
                             self.time_scale_factor) for center in centers]
@@ -196,7 +178,7 @@ class CommentClusterer(object):
                         center[0].todense()) + self.distance(new_center[1], \
                         center[1]) * self.time_scale_factor
             centers = new_centers
-            if False:#self.verbose:
+            if False: #self.verbose:
                 print('Iteration:', i)
                 print('Centroid movement:', dist)
             if dist < self.threshold:
@@ -209,46 +191,33 @@ class CommentClusterer(object):
     def _loop_k_means(self, max_k=20):
         """
         """
-        skips = 0
+        # Can't fit if there are fewer clusters than data points
+        # Probably don't want to put much stock into games with fewer than
+        # max_k comments anyway
+        if len(self.game_vector) <= max_k:
+            print('Very few commments. Skipping.')
+            return
+        for i in range(2, max_k):
+            clusters = self._k_means(k=i)
+            sil_score = self._get_silhouette_score(clusters)
+            # Add the silhouette score and clustering to a list
+            self.scored_clusters.append((sil_score, clusters))
+        # Find the k with the lowest silhouette_score and add the clusters
+        # to a list. len(clusters) will give k, so its not stored)
+        self.scored_clusters.sort()
+        if self.verbose:
+            print('Best Silhouette Score: {:.3f}'.format(self.scored_clusters[-1][0]))
 
-        for done, (game_vector, tf_vectorizer) in enumerate(self.game_vectors):
-            # Store (sil_scores, corresponding clusters)
-            sil_scores = []
-            print('{:.1f}% Complete'.format(100*done/len(self.game_vectors)))
-            # Can't fit if there are fewer clusters than data points
-            # Probably don't want to put much stock into games with fewer than
-            # max_k comments anyway
-            if len(game_vector) <= max_k:
-                skips += 1
-                print('Very few commments. Skipping.')
-                continue
-            for i in range(2, max_k):
-                clusters = self._k_means(game_vector, k=i)
-                sil_score = self._get_silhouette_score(clusters)
-                # Add the silhouette score and clustering to a list
-                sil_scores.append((sil_score, clusters))
-            # Find the k with the lowest silhouette_score and add the clusters
-            # to a list. len(clusters) will give k, so its not stored)
-            sil_scores.sort()
-            print('{:.1f}% Complete'.format(100*done/len(self.game_vectors)))
-            try:
-                self.game_clusters.append((sil_scores[-1][1], tf_vectorizer))
-            except IndexError:
-                skips += 1
-                continue # Avoid trying to print next line
-            print('Silhouette Score: {:.3f}'.format(sil_scores[-1][0]))
-        print('Skipped Clustering: {}'.format(skips))
 
     def print_clusters(self):
         """
         """
-        game_num = 0
-        for clusters, tf_vectorizer in self.game_clusters:
+        for _, clusters in self.scored_clusters:
             for num, center in enumerate(clusters):
                 times = [pt[1].created_utc for pt in clusters[center]]
                 if self.verbose:
                     c_vec = self._to_csr(center[0]).todense().argsort()
-                    features = tf_vectorizer.get_feature_names()
+                    features = self.tf_vectorizer.get_feature_names()
                     f_list = np.array(c_vec[:,-1:-11:-1])[0].tolist()
                     top_words = [features[i] for i in f_list]
                     print('Game: {}\tCentroid:{}'.format(game_num, num))
@@ -259,27 +228,21 @@ class CommentClusterer(object):
                     plt.hist(times)
             if self.print_figs:
                 plt.show()
-            game_num += 1
 
     def get_cluster_docs(self):
         """
         Combines all of the documents in a cluster into a single document,
         with the goal of having a single document for each call
         """
-        docs = []
-        for clusters, _ in self.game_clusters:
-            for center in clusters.values():
-                for pt in center:
-                    print(pt)
-                    break
-                docs.append(' '.join([pt[1].body for pt in center]))
-        return docs
+        # Join all of the comments in a cluster into a single string and return
+        # a list of these strings for each cluster
+        return [' '.join([pt[1].body for pt in center]) \
+                    for center in self.scored_clusters[0].values()]
 
     def fit(self, documents):
         """
         """
         self.documents = documents
-        self._get_flair_list()
         self._add_tf_vectors()
         self._loop_k_means()
         if self.verbose or self.print_figs:

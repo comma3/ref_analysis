@@ -14,7 +14,7 @@ class LemmaTokenizer(object):
         return [self.wnl.lemmatize(t) for t in word_tokenize(doc)]
 
 
-def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
+def load_data(thread, overwrite=False, subreddit = 'cfb',\
                 db='/data/cfb_game_db.sqlite3', bot_params='bot1', \
                 verbose=True):
     """
@@ -44,27 +44,23 @@ def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
                     reddit and get comment forrest reply.
 
     """
+    pickle_path = '../ref_analysis/data/comment_pickles/{}.csv'.format(thread)
     if not os.path.isfile(pickle_path) or overwrite:
-        print('Collecting data from reddit')
-        reddit = praw.Reddit(bot_params)
-        threads = collect_game_threads(db, n_games)
         if verbose:
-            print(threads)
-            print('Number of threads: ', len(threads))
-        game_documents = []
+            print('Collecting data from reddit')
+        reddit = praw.Reddit(bot_params)
         start = time.time()
-        for i, thread in enumerate(threads):
-            if verbose:
-                print('working on thread:', thread)
-            submission = reddit.submission(id=thread[0])
-            submission.comment_sort = 'new'
-            comments = submission.comments
-            comments.replace_more()
-            game_documents.append([top_level_comment \
-                                    for top_level_comment in comments])
-            if verbose:
-                print('Thread number: {} Average time: {}'.format(i, \
-                                                    (time.time()-start)//(i+1)))
+        if verbose:
+            print('working on thread:', thread)
+        submission = reddit.submission(id=thread[0])
+        submission.comment_sort = 'new'
+        comments = submission.comments
+        comments.replace_more()
+        game_documents = [top_level_comment \
+                                for top_level_comment in comments]
+        if verbose:
+            print('Thread number: {} Average time: {}'.format(i, \
+                                                (time.time()-start)//(i+1)))
         if pickle_path:
             pickle.dump(game_documents, open(pickle_path, 'wb'))
     else:
@@ -76,7 +72,7 @@ def load_data(n_games=1, pickle_path='', overwrite=False, subreddit = 'cfb',\
         print('Finished loading data!')
     return game_documents # list (games) of lists of praw comment objects
 
-def collect_game_threads(db, n_games):
+def collect_game_threads(db, n_games=None):
     """
     Makes query to database to collect game thread ids.
 
@@ -93,7 +89,7 @@ def collect_game_threads(db, n_games):
     """
     if n_games: # if a number of games is specified, select that many
         query = """SELECT
-                    game_thread
+                    game_id, game_thread, home, away, winner
                     FROM
                     games
                     LIMIT
