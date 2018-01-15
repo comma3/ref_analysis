@@ -1,48 +1,59 @@
 from library import *
 
 
-def get_label(thread, already_analyzed):
+def get_label(thread, comments, already_analyzed):
     """
     """
     if thread in already_analyzed:
-        return
+        return already_analyzed, ''
 
     training_data = []
-    for comment in comments:
-        print('Flair: {}\n\nBody: {}'.format(comment.author_flair_text, comment.body))
+    num_comments = len(comments)
+    for i, comment in enumerate(comments):
+        category = ''
+        print('==========================\n{} of {} Comments\nFlair: {}\n\nBody:\n{}'.format(i, num_comments, comment.author_flair_text, comment.body))
         while not is_cat_valid(category):
-            category = input('==========================\nWhat class?')
+            category = input('==========================\nEnter class: ')
             if category.lower() == 'quit':
-
-                return 'quit'
-        training_data.append((comment.body, category))
+                return already_analyzed, 'quit'
+        training_data.append((thread, str(comment), comment.author_flair_text, comment.body, comment.created_utc, category))
 
     add_to_db(training_data)
 
     already_analyzed.add(thread)
 
-    return already_analyzed
+    return already_analyzed, ''
 
 def is_cat_valid(string):
     """
     """
-    if not category:
+    if not string:
         return False
     if 'S' in string:
-        num = int(string[1:])
+        try:
+            num = int(string[1:])
+        except ValueError:
+            print('Bad category. Try again or type "quit" to exit.')
+            return False
     else:
-        num = int(string)
+        try:
+            num = int(string)
+        except ValueError:
+            print('Bad category. Try again or type "quit" to exit.')
+            return False
     if num < -30 or num > 30:
+        print('Bad category. Try again or type "quit" to exit.')
         return False
     for c in string:
         if c not in '0123456789S-':
+            print('Bad category. Try again or type "quit" to exit.')
             return False
     return True
 
 def add_to_db(training_data):
     """
     """
-
+    print(training_data)
 
 
 """
@@ -81,8 +92,6 @@ S (for sorry) indicates commenter pulls for other team.
 28 - Roughing the snapper
 29 - Tripping
 30 - Sideline infraction
-
-
 """
 
 if __name__ == '__main__':
@@ -90,13 +99,16 @@ if __name__ == '__main__':
     analyzed_list_path = 'already_analyzed.pkl'
 
     if os.path.isfile(analyzed_list_path):
-        pickle.load(grouped_docs, open(analyzed_list_path, 'rb'))
+        already_analyzed = pickle.load(open(analyzed_list_path, 'rb'))
+    else:
+        already_analyzed = set()
 
     game_list = collect_game_threads()
-
+    print(already_analyzed)
     for thread in game_list:
-        comments = load_data(thread[1])
-        already_analyzed = get_label(thread[1], comments)
-        if already_analyzed == 'quit':
-            pickle.dump(grouped_docs, open(analyzed_list_path, 'wb'))
+        comments = load_data(thread[1], verbose=False)
+        already_analyzed, quit = get_label(thread[1], comments, already_analyzed)
+        if quit == 'quit':
+            pickle.dump(already_analyzed, open(analyzed_list_path, 'wb'))
             break
+        print('++++++++++++++++++++++++++\n\t\t\t\tNEW GAME\n++++++++++++++++++++++++++')
