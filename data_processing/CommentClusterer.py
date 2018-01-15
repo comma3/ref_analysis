@@ -140,11 +140,9 @@ class CommentClusterer(object):
         - clusters - dict mapping cluster centers to observations
         """
 
-        try:
             # Initialize centers and get time from comment -needs to be float
-            centers = [(pt[0], pt[1].created_utc) for pt in random.sample(self.game_vector, k)]
-        except ValueError:
-            return
+        centers = [(pt[0], pt[1].created_utc) for pt in random.sample(self.game_vector, k)]
+
 
         for i in range(self.max_iter):
             clusters = defaultdict(list)
@@ -195,7 +193,7 @@ class CommentClusterer(object):
         # max_k comments anyway
         if len(self.game_vector) <= max_k:
             print('Very few commments. Skipping.')
-            return
+            return True
         for i in range(2, max_k):
             clusters = self._k_means(k=i)
             sil_score = self._get_silhouette_score(clusters)
@@ -203,16 +201,17 @@ class CommentClusterer(object):
             self.scored_clusters.append((sil_score, clusters, i))
         # Find the k with the lowest silhouette_score and add the clusters
         # to a list. len(clusters) will give k, so its not stored)
-        self.scored_clusters.sort()
+        self.scored_clusters.sort(reverse=True)
         if self.verbose:
             print('Best Silhouette Score: {:.3f}'.format(self.scored_clusters[-1][0]))
+
 
 
     def print_clusters(self, only_best=True):
         """
         """
 
-        for score, clusters in self.scored_clusters:
+        for score, clusters, k in self.scored_clusters:
             print('K = {}'.format(len(clusters)))
             for num, center in enumerate(clusters):
                 times = [pt[1].created_utc for pt in clusters[center]]
@@ -221,34 +220,39 @@ class CommentClusterer(object):
                     features = self.tf_vectorizer.get_feature_names()
                     f_list = np.array(c_vec[:,-1:-11:-1])[0].tolist()
                     top_words = [features[i] for i in f_list]
-                    print('Centroid Number: {}', num)
+                    print('Centroid Number: {}'.format(num))
                     print('Time:', center[1])
                     print('Top Words:', top_words)
                 if self.print_figs:
                     plt.scatter(center[1], 0)
                     plt.hist(times)
-                    plt.title('K: {}'.format(len(clusters)))
+                    plt.title('K: {}'.format(k))
             if self.print_figs:
                 plt.show()
             if only_best:
                 break
 
-    def get_cluster_docs(self):
+    def get_combined_cluster_docs(self, cluster='best'):
         """
         Combines all of the documents in a cluster into a single document,
-        with the goal of having a single document for each call
+        with the goal of having a single document for each cluster (i.e., call)
         """
         # Join all of the comments in a cluster into a single string and return
         # a list of these strings for each cluster
-        return [' '.join([pt[1].body for pt in center]) \
-                    for center in self.scored_clusters[0].values()]
+        if cluster=='best':
+            return [' '.join([pt[1].body for pt in center]) \
+                    for center in self.scored_clusters[0][1].values()]
+        else:
+            return [' '.join([pt[1].body for pt in center]) \
+                    for center in self.scored_clusters[cluster][1].values()]
 
     def fit(self, documents):
         """
         """
         self.documents = documents
         self._add_tf_vectors()
-        self._loop_k_means()
+        if self._loop_k_means():
+            return True
         if self.verbose or self.print_figs:
             self.print_clusters()
 

@@ -12,6 +12,7 @@ import praw
 
 from library import load_data, collect_game_threads
 from CommentClusterer import CommentClusterer
+from lda import do_LDA
 
 # Want to return something of the format:
 # team, rule, incorrect, strength, id
@@ -101,13 +102,14 @@ class GameAnalyzer(object):
         """
         """
         self.clusterer = CommentClusterer(**clusterer_params)
-        self.clusterer.fit(self.comments)
+        return self.clusterer.fit(self.comments)
 
 
     def make_silhouette_plot(self):
         """
         """
         pass
+
 
 
 
@@ -120,19 +122,27 @@ if __name__ == '__main__':
     #print(stop_words)
 
     game_list = collect_game_threads()
+    num_games= len(game_list)
+    print('Number of games in DB: {}'.format(num_games))
 
-    print('Number of games in DB: {}'.format(len(game_list)))
-
+    grouped_docs = []
     for n, game in enumerate(game_list):
+        print('{:.1f}% Complete'.format(n/num_games))
         game_id, game_thread, home, away, winner = game
         analyzer = GameAnalyzer(game_id, game_thread, home, away, winner)
-        #analyzer.find_clusters(vocab=vocab, stop_words=stop_words, \
-        #                time_scale_factor=0.1, print_figs=True, ngram_range=(1,3))
-        #analyzer.clusterer.print_clusters()
-        print('Downloaded', game_thread)
+        if analyzer.find_clusters(vocab=vocab, stop_words=stop_words, \
+                    time_scale_factor=0.1, print_figs=False, ngram_range=(1,3)):
+            # Game didn't have enough comments
+            continue
 
-    #grouped_docs = clusterer.get_cluster_docs()
-    #model = do_LDA(grouped_docs, n_features=5000, n_components=20, stop_words=stop_words, ngram_range=(1,5))
+        #analyzer.clusterer.print_clusters()
+        grouped_docs.append(analyzer.clusterer.get_combined_cluster_docs())
+
+        # k = len(analyzer.clusterer.scored_clusters[0][1])
+        # model = do_LDA(grouped_docs, tf_features=500, lda_components=k, stop_words=stop_words, ngram_range=(1,5
+    grouped_path = 'grouped_clusters.pkl'
+    if not os.path.isfile(grouped_path):
+        pickle.dump(grouped_docs, open(grouped_path, 'wb'))
 
     #pickle.dump(model, open('lda_model.pkl', 'wb'))
 

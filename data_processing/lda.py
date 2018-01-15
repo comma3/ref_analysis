@@ -53,7 +53,7 @@ def do_NMF(data, n_features=100, n_components=100, n_top_words=10, \
     print_top_words(nmf, tfidf_feature_names, n_top_words)
 
 
-def do_LDA(data, n_features=100, n_components=10, n_top_words=10, \
+def do_LDA(data, tf_features=100, lda_components=10, n_top_words=20, \
             stop_words='english', max_iter=20, verbose=True, ngram_range=(1,1),
             tokenizer=LemmaTokenizer()):
     """
@@ -69,11 +69,11 @@ def do_LDA(data, n_features=100, n_components=10, n_top_words=10, \
         print('Starting vectorizer fits...')
         print('CountVectorizer...')
     # Use tf (raw term count) features for LDA.
-    tf_vectorizer = CountVectorizer(max_features=n_features, \
+    tf_vectorizer = CountVectorizer(max_features=tf_features, \
                                 stop_words=stop_words, ngram_range=ngram_range,\
                                 tokenizer=tokenizer)
     tf = tf_vectorizer.fit_transform(data)
-    lda = LatentDirichletAllocation(n_components=n_components, max_iter=max_iter,
+    lda = LatentDirichletAllocation(n_components=lda_components, max_iter=max_iter,
                                     learning_method='online',
                                     random_state=0)
     lda.fit(tf)

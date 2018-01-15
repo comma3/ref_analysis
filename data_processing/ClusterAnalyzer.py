@@ -26,21 +26,24 @@ class ClusterAnalyzer(object):
         losing side.
     """
 
-    def __init__(self, comments, lda):
+    def __init__(self, comments, model):
 
         self.comments = comments
-        self.lda = lda
+        self.model = model
 
         self.user_dist = defaultdict(int) # d[team] : # unique poseters
+        self.votes = defaultdict(list) # votes[home] :
+
+        self.team_affected = None
+        self.rule = None
+        self.bad_call = None
+        self.egregiousness = 0
+
+
         for comment in self.comments:
             if comment.author_flair_text:
                 [self.user_dist[f] += 1 for f in comment.author_flair_text.split('/')]
 
-
-    def _determine_teams(self):
-        """
-        """
-        for comment in comments:
 
 
     def _count_votes(self):

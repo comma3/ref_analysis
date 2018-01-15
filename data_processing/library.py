@@ -58,7 +58,7 @@ def load_data(thread, overwrite=False, subreddit = 'cfb',\
         game_documents = [top_level_comment \
                                 for top_level_comment in comments]
         if verbose:
-            print('Time: {}'.format(time.time()-start))
+            print('Time: {:.1f}'.format(time.time()-start))
         if pickle_path:
             pickle.dump(game_documents, open(pickle_path, 'wb'))
     else:
