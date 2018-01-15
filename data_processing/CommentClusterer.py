@@ -23,12 +23,11 @@ class CommentClusterer(object):
     """
     """
 
-    def __init__(self, game_id, vocab=None, vectorizer='tfidf', distance=euclidean, \
+    def __init__(self, vocab=None, vectorizer='tfidf', distance=euclidean, \
                 max_iter=100, time_scale_factor=0.005, threshold=0.1, \
                 verbose=True, print_figs=False, stop_words='english', \
                 ngram_range=(1,1), tokenizer=LemmaTokenizer()):
 
-        self.game_id = game_id
         self.print_figs = print_figs
         self.verbose = verbose
 
@@ -201,7 +200,7 @@ class CommentClusterer(object):
             clusters = self._k_means(k=i)
             sil_score = self._get_silhouette_score(clusters)
             # Add the silhouette score and clustering to a list
-            self.scored_clusters.append((sil_score, clusters))
+            self.scored_clusters.append((sil_score, clusters, i))
         # Find the k with the lowest silhouette_score and add the clusters
         # to a list. len(clusters) will give k, so its not stored)
         self.scored_clusters.sort()
@@ -209,10 +208,12 @@ class CommentClusterer(object):
             print('Best Silhouette Score: {:.3f}'.format(self.scored_clusters[-1][0]))
 
 
-    def print_clusters(self):
+    def print_clusters(self, only_best=True):
         """
         """
-        for _, clusters in self.scored_clusters:
+
+        for score, clusters in self.scored_clusters:
+            print('K = {}'.format(len(clusters)))
             for num, center in enumerate(clusters):
                 times = [pt[1].created_utc for pt in clusters[center]]
                 if self.verbose:
@@ -220,14 +221,17 @@ class CommentClusterer(object):
                     features = self.tf_vectorizer.get_feature_names()
                     f_list = np.array(c_vec[:,-1:-11:-1])[0].tolist()
                     top_words = [features[i] for i in f_list]
-                    print('Game: {}\tCentroid:{}'.format(game_num, num))
+                    print('Centroid Number: {}', num)
                     print('Time:', center[1])
                     print('Top Words:', top_words)
                 if self.print_figs:
                     plt.scatter(center[1], 0)
                     plt.hist(times)
+                    plt.title('K: {}'.format(len(clusters)))
             if self.print_figs:
                 plt.show()
+            if only_best:
+                break
 
     def get_cluster_docs(self):
         """

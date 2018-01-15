@@ -1,14 +1,14 @@
-import sqlite3
-import pickle, os
+import sqlite3, pickle, os
+from collections import defaultdict
 from time import time
+
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
-
-import praw
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.decomposition import NMF, LatentDirichletAllocation
+
+import praw
 
 from library import load_data, collect_game_threads
 from CommentClusterer import CommentClusterer
@@ -19,13 +19,7 @@ from CommentClusterer import CommentClusterer
 
 class GameAnalyzer(object):
     """
-    Takes a cluster of comments and determines
-    1. the suggested rule,
-    2. the consesus on the ruling (True/False)
-    3. the strenght of the feelings about the call (sentiment)
-    4. the team affected
-    5. counts of team affiliations and whether they were on the winning or
-        losing side.
+
     """
 
     def __init__(self, game_id, game_thread, home, away, winner):
@@ -44,10 +38,11 @@ class GameAnalyzer(object):
 
         self.clusterer = None # Actual clusters are in clusterer.scored_clusters
 
-        self.lda = None
+        self.model = None
 
+        self.comments = None
         self._load_data()
-        self._get_user_scores_by_affiliation()
+        #self._get_user_scores_by_affiliation()
         self._get_flair_set() # Maybe combine these two.
 
     def _get_flair_set(self):
@@ -61,7 +56,7 @@ class GameAnalyzer(object):
         else:
             flairs = set()
 
-        for comment in self.documents:
+        for comment in self.comments:
             if comment.author_flair_text:
                 fs = comment.author_flair_text.split('/')
             else: # No flair
@@ -96,16 +91,18 @@ class GameAnalyzer(object):
     def _load_data(self):
         """
         Either downloads the comments or stores them as a pickle
+
+        Will change to also use a db when data format is finalized
         """
 
-        self.documents = load_data(self.game_thread)
+        self.comments = load_data(self.game_thread)
 
-    def find_clusters(self):
+    def find_clusters(self, **clusterer_params):
         """
         """
-        self.clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, \
-                        time_scale_factor=0.1, print_figs=True, ngram_range=(1,3))
-        self.clusterer.fit(self.documents)
+        self.clusterer = CommentClusterer(**clusterer_params)
+        self.clusterer.fit(self.comments)
+
 
     def make_silhouette_plot(self):
         """
@@ -127,15 +124,17 @@ if __name__ == '__main__':
     print('Number of games in DB: {}'.format(len(game_list)))
 
     for n, game in enumerate(game_list):
-        print(game)
         game_id, game_thread, home, away, winner = game
         analyzer = GameAnalyzer(game_id, game_thread, home, away, winner)
-        analyzer.find_clusters()
+        #analyzer.find_clusters(vocab=vocab, stop_words=stop_words, \
+        #                time_scale_factor=0.1, print_figs=True, ngram_range=(1,3))
+        #analyzer.clusterer.print_clusters()
+        print('Downloaded', game_thread)
 
-    grouped_docs = clusterer.get_cluster_docs()
-    model = do_LDA(grouped_docs, n_features=5000, n_components=20, stop_words=stop_words, ngram_range=(1,5))
+    #grouped_docs = clusterer.get_cluster_docs()
+    #model = do_LDA(grouped_docs, n_features=5000, n_components=20, stop_words=stop_words, ngram_range=(1,5))
 
-    pickle.dump(model, open('lda_model.pkl', 'wb'))
+    #pickle.dump(model, open('lda_model.pkl', 'wb'))
 
     # Leave here to remember these
     # for top_level_comment in comments:

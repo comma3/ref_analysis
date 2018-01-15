@@ -15,8 +15,7 @@ class LemmaTokenizer(object):
 
 
 def load_data(thread, overwrite=False, subreddit = 'cfb',\
-                db='/data/cfb_game_db.sqlite3', bot_params='bot1', \
-                verbose=True):
+                bot_params='bot1', verbose=True):
     """
     Loads invidudal game data. The function has multiple uses, many of which
     were only important during development.
@@ -52,15 +51,14 @@ def load_data(thread, overwrite=False, subreddit = 'cfb',\
         start = time.time()
         if verbose:
             print('working on thread:', thread)
-        submission = reddit.submission(id=thread[0])
+        submission = reddit.submission(id=thread)
         submission.comment_sort = 'new'
         comments = submission.comments
         comments.replace_more()
         game_documents = [top_level_comment \
                                 for top_level_comment in comments]
         if verbose:
-            print('Thread number: {} Average time: {}'.format(i, \
-                                                (time.time()-start)//(i+1)))
+            print('Time: {}'.format(time.time()-start))
         if pickle_path:
             pickle.dump(game_documents, open(pickle_path, 'wb'))
     else:
@@ -72,7 +70,7 @@ def load_data(thread, overwrite=False, subreddit = 'cfb',\
         print('Finished loading data!')
     return game_documents # list (games) of lists of praw comment objects
 
-def collect_game_threads(db, n_games=None):
+def collect_game_threads(db='/data/cfb_game_db.sqlite3', n_games=None):
     """
     Makes query to database to collect game thread ids.
 
@@ -97,7 +95,7 @@ def collect_game_threads(db, n_games=None):
                     """.format(n_games)
     else: # select all threads
         query = """SELECT
-                    game_thread
+                    game_id, game_thread, home, away, winner
                     FROM
                     games
                     """
