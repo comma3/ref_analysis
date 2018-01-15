@@ -43,7 +43,7 @@ def load_data(thread, overwrite=False, subreddit = 'cfb',\
                     reddit and get comment forrest reply.
 
     """
-    pickle_path = '../ref_analysis/data/comment_pickles/{}.csv'.format(thread)
+    pickle_path = '../ref_analysis/data/comment_pickles/{}.pkl'.format(thread)
     if not os.path.isfile(pickle_path) or overwrite:
         if verbose:
             print('Collecting data from reddit')
