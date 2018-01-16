@@ -1,4 +1,7 @@
+import sqlite3
+
 from library import *
+
 
 
 def get_label(thread, comments, already_analyzed):
