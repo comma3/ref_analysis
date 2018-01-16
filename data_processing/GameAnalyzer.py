@@ -10,7 +10,7 @@ from sklearn.decomposition import NMF, LatentDirichletAllocation
 
 import praw
 
-from library import load_data, collect_game_threads
+from library import *
 from CommentClusterer import CommentClusterer
 from lda import do_LDA
 
@@ -23,12 +23,16 @@ class GameAnalyzer(object):
 
     """
 
-    def __init__(self, game_id, game_thread, home, away, winner):
+    def __init__(self, model, vectorizer, game_id, game_thread, home, away, winner):
+
+        self.model = model
+        self.vectorizer = vectorizer
+
         self.game_id = game_id
         self.game_thread = game_thread
-        self.home = home
-        self.away = away
-        self.winner = winner
+        self.home = home.lower()
+        self.away = away.lower()
+        self.winner = winner.lower()
 
         self.home_fans = defaultdict(list)
         self.away_fans = defaultdict(list)
@@ -39,10 +43,8 @@ class GameAnalyzer(object):
 
         self.clusterer = None # Actual clusters are in clusterer.scored_clusters
 
-        self.model = None
-
         self.comments = None
-        self._load_data()
+        self._load_data() # loads comments
         #self._get_user_scores_by_affiliation()
         self._get_flair_set() # Maybe combine these two.
 
@@ -74,8 +76,10 @@ class GameAnalyzer(object):
         for comment in self.comments:
             if comment.author_flair_text:
                 has_team_in_game = False
-                for f in comment.author_flair_text.split('/'):
-
+                flairs = comment.author_flair_text.lower().split('/')
+                if len(flairs) > 2:
+                    print(flairs)
+                for f in flairs:
                     if self.home in f.lower():
                         self.home_fans[comment.author].append(comment.score)
                         has_team_in_game = True
@@ -95,8 +99,15 @@ class GameAnalyzer(object):
 
         Will change to also use a db when data format is finalized
         """
-
         self.comments = load_data(self.game_thread)
+
+    def _clean_text(self, comment_text):
+        """
+        """
+        if isinstance(comment_text,str):
+            return self.vectorizer.transform([comment_text])
+        else:
+            return self.vectorizer.transform(comment_text)
 
     def find_clusters(self, **clusterer_params):
         """
@@ -111,6 +122,13 @@ class GameAnalyzer(object):
         pass
 
 
+    def classify_comments(self):
+        """
+        """
+        ref_related = []
+        for comment in self.comments:
+            print(self.model.predict(self._clean_text(comment.body)))
+
 
 
 if __name__ == '__main__':
@@ -124,25 +142,28 @@ if __name__ == '__main__':
     game_list = collect_game_threads()
     num_games= len(game_list)
     print('Number of games in DB: {}'.format(num_games))
-
+    model, vectorizer = get_MutliTargetModel(overwrite=True, alpha=0, fit_prior=True)
     grouped_docs = []
     for n, game in enumerate(game_list):
         print('{:.1f}% Complete'.format(n/num_games))
         game_id, game_thread, home, away, winner = game
-        analyzer = GameAnalyzer(game_id, game_thread, home, away, winner)
-        if analyzer.find_clusters(vocab=vocab, stop_words=stop_words, \
-                    time_scale_factor=0.1, print_figs=False, ngram_range=(1,3)):
-            # Game didn't have enough comments
-            continue
+        analyzer = GameAnalyzer(model, vectorizer, game_id, game_thread, home, away, winner)
+        analyzer.classify_comments()
+        break
 
-        #analyzer.clusterer.print_clusters()
-        grouped_docs.append(analyzer.clusterer.get_combined_cluster_docs())
+        # if analyzer.find_clusters(vocab=vocab, stop_words=stop_words, \
+        #             time_scale_factor=0.1, print_figs=False, ngram_range=(1,3)):
+        #     # Game didn't have enough comments
+        #     continue
+        #
+        # #analyzer.clusterer.print_clusters()
+        # grouped_docs.append(analyzer.clusterer.get_combined_cluster_docs())
 
         # k = len(analyzer.clusterer.scored_clusters[0][1])
         # model = do_LDA(grouped_docs, tf_features=500, lda_components=k, stop_words=stop_words, ngram_range=(1,5
-    grouped_path = 'grouped_clusters.pkl'
-    if not os.path.isfile(grouped_path):
-        pickle.dump(grouped_docs, open(grouped_path, 'wb'))
+    # grouped_path = 'grouped_clusters.pkl'
+    # if not os.path.isfile(grouped_path):
+    #     pickle.dump(grouped_docs, open(grouped_path, 'wb'))
 
     #pickle.dump(model, open('lda_model.pkl', 'wb'))
 

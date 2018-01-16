@@ -9,15 +9,19 @@ from sklearn.naive_bayes import MultinomialNB
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
-from library import LemmaTokenizer
+from library import *
 
 class MultiTargetModel():
     """
     """
 
-    def __init__(self, model, n_jobs=1):
+    def __init__(self, model, n_jobs=1, vectorizer=CountVectorizer, stop_words='english', tokenizer=LemmaTokenizer):
         self.model = model
         self.classifier = None
+        self.n_jobs = n_jobs
+        self.vectorizer = vectorizer()
+        self.tokenizer = tokenizer
+        self.stop_words = stop_words
 
         self.X = None
         self.targets = None
@@ -26,19 +30,14 @@ class MultiTargetModel():
         self.recall = None
         self.accuracy = None
 
+
     def fit_classifier(self, X, y, **kwargs):
         """
         """
-        self.X = X
+        self.X = self.vectorizer.fit_transform(X)
         self.classifier = OneVsRestClassifier(self.model(**kwargs))
         self._make_targets(y)
         self.classifier.fit(X, self.targets)
-
-        #for row in zip(y,preds):
-            # Proabably need to create my own recall metric here
-           #print(row)
-        return self.classifier
-
 
 
     def _make_targets(self, y):
@@ -51,6 +50,8 @@ class MultiTargetModel():
         clean = [x.replace(' ', '') for x in strings]
         dummies = [x.split(',') for x in clean]
         self.targets = mlb.fit_transform(dummies)
+        self.target_classes = mlb.classes_
+        print(self.target_classes)
 
     def make_predictions(self, X):
         """
@@ -58,38 +59,49 @@ class MultiTargetModel():
         self.predictions = self.classifier.predict(X)
         return self.predictions
 
-    def calc_accuracy(self):
+    def calc_accuracy(self, X=None):
         """
         """
+        if not X:
+            X = self.X
         self.accuracy = self.classifier.score(X, self.targets)
         print(self.accuracy)
 
-    def calc_recall(self):
+    def calc_recall(self, X=None):
         """
         """
-        labels = np.array(labels)
-        preds = np.array(preds)
+        if not X:
+            X = self.X
+        labels = np.array(self.targets)
+        preds = np.array(self.make_predictions(X))
         labels[labels == 0] = 2
         preds[preds == 0] = 3
         correct = labels == preds
         labels[labels == 2] = 0
         self.recall = correct.sum(axis = 0) / labels.sum(axis=0)
+        avg = 0
         for score in self.recall:
             print(score)
+            avg += score
+        print('Average Recall: {}'.format(avg/len(self.recall)))
 
-    def calc_preciscion(self):
+    def calc_preciscion(self, X=None):
         """
         """
-        self.targets = np.array(labels)
-        preds = np.array(preds)
+        if not X:
+            X = self.X
+        labels = np.array(self.targets)
+        preds = np.array(self.make_predictions(X))
         labels[labels == 0] = 2
         preds[preds == 0] = 3
         correct = labels == preds
         preds[preds == 3] = 0
         self.precision = correct.sum(axis = 0) / preds.sum(axis=0)
+        avg = 0
         for score in self.precision:
             print(score)
-
+            avg += score
+        print('Average Precision: {}'.format(avg/len(self.precision)))
 
 if __name__ == '__main__':
     db='/data/cfb_game_db.sqlite3'
@@ -107,8 +119,6 @@ if __name__ == '__main__':
     text = data[:,0]
     labels = data[:,1]
 
-    y = make_targets(labels)
-
     with open('../ref_analysis/data/common-english-words.csv') as f:
         stop_words = [word.strip() for word in f]
 
@@ -116,4 +126,4 @@ if __name__ == '__main__':
     X = vectizer.fit_transform(text)
 
     multilabler = MultiTargetModel(MultinomialNB)
-    multilabler = fit_classifier(X, y)
+    multilabler.fit_classifier(X, labels)

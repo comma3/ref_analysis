@@ -1,8 +1,17 @@
 import sqlite3, os, pickle, random, time
-import praw
+
+import numpy as np
+
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
 
 from nltk import word_tokenize
 from nltk.stem import WordNetLemmatizer
+
+import praw
+
+from MultiTargetModel import MultiTargetModel
+
 
 class LemmaTokenizer(object):
     """
@@ -43,7 +52,7 @@ def load_data(thread, overwrite=False, subreddit = 'cfb',\
                     reddit and get comment forrest reply.
 
     """
-    pickle_path = '../ref_analysis/data/comment_pickles/{}.pkl'.format(thread)
+    pickle_path = '/data/comment_pickles/{}.pkl'.format(thread)
     if not os.path.isfile(pickle_path) or overwrite:
         if verbose:
             print('Collecting data from reddit')
@@ -122,6 +131,54 @@ def replace_many(to_replace, replace_with, string):
     for s in to_replace:
         string.replace(s, replace_with)
     return string
+
+def get_MultiTargetModel(pickle_path='model.pkl', db='/data/cfb_game_db.sqlite3', overwrite=False, verbose=True, **kwargs):
+    """
+
+    """
+
+    if not os.path.isfile(pickle_path) or overwrite:
+        if verbose:
+            print('Getting data from {}'.format(db))
+        query = """SELECT
+                    body, category
+                    FROM
+                    training_data
+                    """
+        conn = sqlite3.connect(db)
+        curr = conn.cursor()
+        curr.execute(query)
+        data = np.array(curr.fetchall())
+        conn.close()
+
+        text = data[:,0]
+        labels = data[:,1]
+
+        with open('../ref_analysis/data/common-english-words.csv') as f:
+            stop_words = [word.strip() for word in f]
+
+        if verbose:
+            print('Fitting new model.')
+
+        multilabler = MultiTargetModel(MultinomialNB, vectorizer, stop_words=stop_words, tokenizer=LemmaTokenizer())
+        multilabler.fit_classifier(X, labels, **kwargs)
+        print('Recall:')
+        multilabler.calc_recall()
+        print('Precision:')
+        multilabler.calc_preciscion()
+        print('Accuracy:')
+        multilabler.calc_accuracy()
+        out = (multilabler, vectorizer)
+        if pickle_path:
+            print('Saving model as {}'.format(pickle_path))
+            pickle.dump(out, open(pickle_path, 'wb'))
+
+    else:
+        if verbose:
+            print('Loading data from pickle')
+        out = pickle.load(open(pickle_path, 'rb'))
+
+    return out
 
 
 if __name__ == '__main__':

@@ -74,12 +74,10 @@ class ClusterAnalyzer(object):
         # Assign comments as suggesting bad call
         # then find the votes for each of these calls
         home_bad_call = 0
-        home_disagree = 0
+        home_right_call = 0
         home_total = 0
-        away_positive = 0
-        away_negative = 0
-        away_total = 0
-        for category, score, mentioned in self.home_scores:
+
+        for com_class, score, mentioned in self.home_scores:
             if category == 'D':
                 home_disagree += score
             if category == 'E':
