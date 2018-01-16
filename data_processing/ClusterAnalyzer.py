@@ -26,13 +26,17 @@ class ClusterAnalyzer(object):
         losing side.
     """
 
-    def __init__(self, comments, model):
+    def __init__(self, comments, model, home, away):
 
         self.comments = comments
         self.model = model
+        self.home = home
+        self.away = away
 
         self.user_dist = defaultdict(int) # d[team] : # unique poseters
-        self.votes = defaultdict(list) # votes[home] :
+        self.home_scores = [] # votes[home] :
+        self.away_scores = []
+        self.unaffiliated_scores = defaultdict(list)
 
         self.team_affected = None
         self.rule = None
@@ -46,10 +50,70 @@ class ClusterAnalyzer(object):
 
 
 
-    def _count_votes(self):
+    def _collect_votes(self):
         """
         """
-        pass
+        for comment in self.comments:
+            if comment.author_flair_text:
+                if self.home.lower() in comment.author_flair_text.lower():
+                    self.home_scores.append((self.model.predict(comment.body), \
+                                comment.score, self._mention_team(comment.body)))
+                elif self.away.lower() in comment.author_flair_text.lower():
+                    self.away_scores.append(comment.score)
+                else:
+                    self.unaffiliated_scores.append((self.model.predict(comment.body), \
+                                comment.score, self._mention_team(comment.body)))
+            else:
+                self.unaffiliated_scores.append((self.model.predict(comment.body), \
+                            comment.score, self._mention_team(comment.body)))
+
+    def predict(self):
+        """
+        """
+
+        # Assign comments as suggesting bad call
+        # then find the votes for each of these calls
+        home_bad_call = 0
+        home_disagree = 0
+        home_total = 0
+        away_positive = 0
+        away_negative = 0
+        away_total = 0
+        for category, score, mentioned in self.home_scores:
+            if category == 'D':
+                home_disagree += score
+            if category == 'E':
+            # Should add something like len(categories) > 1 (discussion of multiple fouls is likely an excuse)
+            # Sort of implicit admission
+                home_positive += 1
+                # Probably want to use these votes for something
+            if category == 'S':
+                away_bad_call += 1
+            else:
+                home_negative += 1
+            home_total += score
+
+
+
+    def _mention_team(self, comment):
+        """
+        """
+
+        for word in comment.body.lower():
+            if word in self.home:
+                return self.home
+            elif word in self.away:
+                return self.away
+            elif word == 'we' or word == 'us':
+                if self.home in comment.author_flair_text.lower():
+                    return self.home
+                elif self.away in comment.author_flair_text.lower()
+                    return self.away
+            elif word in nicknames_dict[self.home]:
+                return self.home
+            elif word in nicknames_dict[self.away]:
+                return self.away
+        return None
 
     # Leave here to remember these
     # for top_level_comment in comments:
