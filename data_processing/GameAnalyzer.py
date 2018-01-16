@@ -143,6 +143,12 @@ if __name__ == '__main__':
     num_games= len(game_list)
     print('Number of games in DB: {}'.format(num_games))
     model, vectorizer = get_MutliTargetModel(overwrite=True, alpha=0, fit_prior=True)
+    print('Recall:')
+    model.calc_recall()
+    print('Precision:')
+    model.calc_preciscion()
+    print('Accuracy:')
+    model.calc_accuracy()
     grouped_docs = []
     for n, game in enumerate(game_list):
         print('{:.1f}% Complete'.format(n/num_games))

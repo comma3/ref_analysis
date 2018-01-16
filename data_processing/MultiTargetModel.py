@@ -19,7 +19,7 @@ class MultiTargetModel():
         self.model = model
         self.classifier = None
         self.n_jobs = n_jobs
-        self.vectorizer = vectorizer()
+        self.vectorizer = vectorizer(stop_words=stop_words, tokenizer=tokenizer())
         self.tokenizer = tokenizer
         self.stop_words = stop_words
 
