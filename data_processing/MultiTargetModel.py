@@ -10,6 +10,7 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
 from library import *
+from LemmaTokenizer import LemmaTokenizer
 
 class MultiTargetModel():
     """
@@ -17,7 +18,6 @@ class MultiTargetModel():
 
     def __init__(self, model, n_jobs=1, vectorizer=CountVectorizer, stop_words='english', tokenizer=LemmaTokenizer):
         self.model = model
-        self.classifier = None
         self.n_jobs = n_jobs
         self.vectorizer = vectorizer(stop_words=stop_words, tokenizer=tokenizer())
         self.tokenizer = tokenizer
@@ -25,6 +25,7 @@ class MultiTargetModel():
 
         self.X = None
         self.targets = None
+        self.classifier = None
 
         self.precision = None
         self.recall = None
@@ -36,8 +37,8 @@ class MultiTargetModel():
         """
         self.X = self.vectorizer.fit_transform(X)
         self.classifier = OneVsRestClassifier(self.model(**kwargs))
-        self._make_targets(y)
-        self.classifier.fit(X, self.targets)
+        self._make_targets(y) # Modifies self.targets
+        self.classifier.fit(self.X, self.targets)
 
 
     def _make_targets(self, y):
@@ -51,7 +52,7 @@ class MultiTargetModel():
         dummies = [x.split(',') for x in clean]
         self.targets = mlb.fit_transform(dummies)
         self.target_classes = mlb.classes_
-        print(self.target_classes)
+        #print(self.target_classes)
 
     def make_predictions(self, X):
         """

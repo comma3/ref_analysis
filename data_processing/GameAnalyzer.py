@@ -23,16 +23,16 @@ class GameAnalyzer(object):
 
     """
 
-    def __init__(self, model, vectorizer, game_id, game_thread, home, away, winner):
+    def __init__(self, model, game_id, game_thread, home, away, winner):
 
-        self.model = model
-        self.vectorizer = vectorizer
-
+        self.model = model # MultiTargetModel
         self.game_id = game_id
         self.game_thread = game_thread
         self.home = home.lower()
         self.away = away.lower()
         self.winner = winner.lower()
+
+        self.ref_mask = []
 
         self.home_fans = defaultdict(list)
         self.away_fans = defaultdict(list)
@@ -64,9 +64,7 @@ class GameAnalyzer(object):
                 fs = comment.author_flair_text.split('/')
             else: # No flair
                 continue
-            [flairs.add(f.strip().lower()) for f in fs]
-        # This will only store flair list if it doesn't exist.
-        # Change the behavior of this whole thing in the future
+            (flairs.add(f.strip().lower()) for f in fs)
         pickle.dump(flairs, open(pickle_path, 'wb'))
 
 
@@ -101,19 +99,22 @@ class GameAnalyzer(object):
         """
         self.comments = load_data(self.game_thread)
 
-    def _clean_text(self, comment_text):
+    def _process_text(self, comment_text=None):
         """
+        Clean and vectorize
         """
+        # Clean a single text string
         if isinstance(comment_text,str):
-            return self.vectorizer.transform([comment_text])
-        else:
-            return self.vectorizer.transform(comment_text)
+            return self.model.vectorizer.transform([comment_text])
+        else: # Clean whole list of comments
+            comments = np.array([comment.body for comment in self.comments])
+            return self.model.vectorizer.transform(comments)
 
     def find_clusters(self, **clusterer_params):
         """
         """
         self.clusterer = CommentClusterer(**clusterer_params)
-        return self.clusterer.fit(self.comments)
+        return self.clusterer.fit(self.ref_tfvectors, self.ref_times, self.ref_labels)
 
 
     def make_silhouette_plot(self):
@@ -125,11 +126,18 @@ class GameAnalyzer(object):
     def classify_comments(self):
         """
         """
-        ref_related = []
-        for comment in self.comments:
-            print(self.model.predict(self._clean_text(comment.body)))
+        self.class_labels = self.model.classifier.predict(self._process_text())
+        self.filter_comments()
 
+    def filter_comments(self):
 
+        self.ref_mask = np.where([1 if any(row[1:]==1) else 0 for row in self.class_labels])
+        self.ref_labels = self.class_labels[self.ref_mask]
+        self.ref_tfvectors = self._process_text()[self.ref_mask]
+        self.ref_times = np.array([comment.created for comment in self.comments])[self.ref_mask]
+        #print(self.ref_labels.shape)
+        #print(self.ref_tfvectors.shape)
+        print(self.ref_times.shape)
 
 if __name__ == '__main__':
 
@@ -142,20 +150,20 @@ if __name__ == '__main__':
     game_list = collect_game_threads()
     num_games= len(game_list)
     print('Number of games in DB: {}'.format(num_games))
-    model, vectorizer = get_MutliTargetModel(overwrite=True, alpha=0, fit_prior=True)
-    print('Recall:')
-    model.calc_recall()
-    print('Precision:')
-    model.calc_preciscion()
-    print('Accuracy:')
-    model.calc_accuracy()
-    grouped_docs = []
+    model = get_MultiTargetModel(overwrite=False, alpha=0, fit_prior=True)
+    # print('Recall:')
+    # model.calc_recall()
+    # print('Precision:')
+    # model.calc_preciscion()
+    # print('Accuracy:')
+    # model.calc_accuracy()
     for n, game in enumerate(game_list):
         print('{:.1f}% Complete'.format(n/num_games))
         game_id, game_thread, home, away, winner = game
-        analyzer = GameAnalyzer(model, vectorizer, game_id, game_thread, home, away, winner)
+        analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
         analyzer.classify_comments()
         break
+
 
         # if analyzer.find_clusters(vocab=vocab, stop_words=stop_words, \
         #             time_scale_factor=0.1, print_figs=False, ngram_range=(1,3)):

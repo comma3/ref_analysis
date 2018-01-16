@@ -5,22 +5,12 @@ import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 
-from nltk import word_tokenize
-from nltk.stem import WordNetLemmatizer
-
 import praw
 
+from LemmaTokenizer import LemmaTokenizer
 from MultiTargetModel import MultiTargetModel
 
 
-class LemmaTokenizer(object):
-    """
-    Implemenation of a tokenizer/lemmatizer from sklearn's documentation.
-    """
-    def __init__(self):
-        self.wnl = WordNetLemmatizer()
-    def __call__(self, doc):
-        return [self.wnl.lemmatize(t) for t in word_tokenize(doc)]
 
 
 def load_data(thread, overwrite=False, subreddit = 'cfb',\
@@ -160,25 +150,18 @@ def get_MultiTargetModel(pickle_path='model.pkl', db='/data/cfb_game_db.sqlite3'
         if verbose:
             print('Fitting new model.')
 
-        multilabler = MultiTargetModel(MultinomialNB, vectorizer, stop_words=stop_words, tokenizer=LemmaTokenizer())
-        multilabler.fit_classifier(X, labels, **kwargs)
-        print('Recall:')
-        multilabler.calc_recall()
-        print('Precision:')
-        multilabler.calc_preciscion()
-        print('Accuracy:')
-        multilabler.calc_accuracy()
-        out = (multilabler, vectorizer)
+        multilabler = MultiTargetModel(MultinomialNB, vectorizer=CountVectorizer, stop_words=stop_words, tokenizer=LemmaTokenizer)
+        multilabler.fit_classifier(text, labels, **kwargs)
         if pickle_path:
             print('Saving model as {}'.format(pickle_path))
-            pickle.dump(out, open(pickle_path, 'wb'))
+            pickle.dump(multilabler, open(pickle_path, 'wb'))
 
     else:
         if verbose:
             print('Loading data from pickle')
-        out = pickle.load(open(pickle_path, 'rb'))
+        multilabler = pickle.load(open(pickle_path, 'rb'))
 
-    return out
+    return multilabler
 
 
 if __name__ == '__main__':
