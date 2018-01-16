@@ -117,11 +117,6 @@ class GameAnalyzer(object):
         return self.clusterer.fit(self.ref_tfvectors, self.ref_times, self.ref_labels)
 
 
-    def make_silhouette_plot(self):
-        """
-        """
-        pass
-
 
     def classify_comments(self):
         """
@@ -130,14 +125,15 @@ class GameAnalyzer(object):
         self.filter_comments()
 
     def filter_comments(self):
-
+        """
+        """
         self.ref_mask = np.where([1 if any(row[1:]==1) else 0 for row in self.class_labels])
         self.ref_labels = self.class_labels[self.ref_mask]
         self.ref_tfvectors = self._process_text()[self.ref_mask]
-        self.ref_times = np.array([comment.created for comment in self.comments])[self.ref_mask]
+        self.ref_times = np.array([comment for comment in self.comments])[self.ref_mask]
         #print(self.ref_labels.shape)
         #print(self.ref_tfvectors.shape)
-        print(self.ref_times.shape)
+        #print(self.ref_times.shape)
 
 if __name__ == '__main__':
 
@@ -162,6 +158,7 @@ if __name__ == '__main__':
         game_id, game_thread, home, away, winner = game
         analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
         analyzer.classify_comments()
+        analyzer.find_clusters(time_scale_factor=0.1, print_figs=True)
         break
 
 

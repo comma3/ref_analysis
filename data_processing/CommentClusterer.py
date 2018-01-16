@@ -128,8 +128,16 @@ class CommentClusterer(object):
         return silhouette_score(distances, labels, metric="precomputed")
 
 
+    def label_distance(self, test, center):
+        """
+        """
+        for a, b in zip(test, center):
+            pass
+
+
     def _k_means(self, k):
-        """Performs custom k means
+        """
+        Performs custom k means clustering
 
         Args:
         - game - feature matrix of (tf_vector, praw comment object)
@@ -140,16 +148,21 @@ class CommentClusterer(object):
         - clusters - dict mapping cluster centers to observations
         """
 
-            # Initialize centers and get time from comment -needs to be float
-        centers = [(pt[0], pt[1].created_utc) for pt in random.sample(self.game_vector, k)]
+            # Initialize centers and get time from comment -> needs to be float
+        centers = [(pt[0], pt[1].created_utc, pt[2]) for pt in random.sample(self.game_vector, k)]
 
 
         for i in range(self.max_iter):
             clusters = defaultdict(list)
             # Calculate the distance of each point to each center and assignment
             # the point to the cluster with that center.
-            for tfs, comment in self.game_vector:
-                distances = [(self.distance(tfs.todense(), center[0].todense())\
+            for tfs, comment, labels in self.game_vector:
+                if dist_type == 'old':
+                    distances = [(self.distance(tfs.todense(), center[0].todense())\
+                            + self.distance(comment.created_utc, center[1]) * \
+                            self.time_scale_factor) for center in centers]
+                else:
+                    distances = [(self.distance(tfs.todense(), center[0].todense())\
                             + self.distance(comment.created_utc, center[1]) * \
                             self.time_scale_factor) for center in centers]
                 # Determine which center is closest
@@ -175,7 +188,7 @@ class CommentClusterer(object):
                         center[0].todense()) + self.distance(new_center[1], \
                         center[1]) * self.time_scale_factor
             centers = new_centers
-            if False: #self.verbose:
+            if True: #self.verbose:
                 print('Iteration:', i)
                 print('Centroid movement:', dist)
             if dist < self.threshold:
@@ -185,7 +198,7 @@ class CommentClusterer(object):
 
         return clusters
 
-    def _loop_k_means(self, max_k=20):
+    def _loop_k_means(self, max_k=10):
         """
         """
         # Can't fit if there are fewer clusters than data points
@@ -205,7 +218,10 @@ class CommentClusterer(object):
         if self.verbose:
             print('Best Silhouette Score: {:.3f}'.format(self.scored_clusters[-1][0]))
 
-
+    def print_silhouette_plot(self):
+        """
+        """
+        pass
 
     def print_clusters(self, only_best=True):
         """
@@ -215,14 +231,14 @@ class CommentClusterer(object):
             print('K = {}'.format(len(clusters)))
             for num, center in enumerate(clusters):
                 times = [pt[1].created_utc for pt in clusters[center]]
-                if self.verbose:
-                    c_vec = self._to_csr(center[0]).todense().argsort()
-                    features = self.tf_vectorizer.get_feature_names()
-                    f_list = np.array(c_vec[:,-1:-11:-1])[0].tolist()
-                    top_words = [features[i] for i in f_list]
-                    print('Centroid Number: {}'.format(num))
-                    print('Time:', center[1])
-                    print('Top Words:', top_words)
+                #if self.verbose:
+                    # c_vec = self._to_csr(center[0]).todense().argsort()
+                    # features = self.tf_vectorizer.get_feature_names()
+                    # f_list = np.array(c_vec[:,-1:-11:-1])[0].tolist()
+                    # top_words = [features[i] for i in f_list]
+                    # print('Centroid Number: {}'.format(num))
+                    # print('Time:', center[1])
+                    # print('Top Words:', top_words)
                 if self.print_figs:
                     plt.scatter(center[1], 0)
                     plt.hist(times)
@@ -246,11 +262,13 @@ class CommentClusterer(object):
             return [' '.join([pt[1].body for pt in center]) \
                     for center in self.scored_clusters[cluster][1].values()]
 
-    def fit(self, documents):
+    def fit(self, tf_vectors, comments, labels):
         """
         """
-        self.documents = documents
-        self._add_tf_vectors()
+        #self.documents = documents
+        #self._add_tf_vectors()
+        self.game_vector = list(zip(tf_vectors, comments, labels))
+
         if self._loop_k_means():
             return True
         if self.verbose or self.print_figs:
