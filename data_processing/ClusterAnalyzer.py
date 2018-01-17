@@ -69,6 +69,22 @@ class ClusterAnalyzer(object):
                 self.unaffiliated_scores.append((labels, comment.score,\
                                             self._mention_team(comment)))
 
+    def _check_flair(self, team, flair):
+        """
+        Checks a variety of nicknames for match. For example, lsu is given
+        by flair, but home team is given by Lousiana State.
+
+        """
+        if self.home.lower() in comment.author_flair_text.lower():
+            return True
+        for base_team in self.team_nickname_dict[team]:
+            if base_team in flair or base_team in team:
+                return True
+        for base_team in self.team_nickname_dict[team]:
+            if team in base_team or base_team in team:
+                return True
+
+
     def predict(self):
         """
         """
@@ -82,9 +98,9 @@ class ClusterAnalyzer(object):
                             'away' : 0
                             }
 
-        print(len(self.home_scores))
-        print(len(self.away_scores))
-        print(len(self.unaffiliated_scores))
+        # print(len(self.home_scores))
+        # print(len(self.away_scores))
+        # print(len(self.unaffiliated_scores))
         if self.home_scores:
             class_totals = np.zeros(self.home_scores[0][0].shape)
         elif self.away_scores:
@@ -128,10 +144,10 @@ class ClusterAnalyzer(object):
                     we.add(self.home)
                 elif self.away in comment.author_flair_text.lower():
                     we.add(self.away)
-            elif word in self.nicknames_dict[self.home]:
-                teams.add(self.home)
-            elif word in self.nicknames_dict[self.away]:
-                teams.add(self.away)
+            # elif word in self.nicknames_dict[self.home]:
+            #     teams.add(self.home)
+            # elif word in self.nicknames_dict[self.away]:
+            #     teams.add(self.away)
         return None
 
     # Leave here to remember these

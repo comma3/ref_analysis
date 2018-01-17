@@ -164,11 +164,13 @@ RR - call reversed
 17 - Late hit
 18 - Targetting
 
+
+
+
+
 20 - Illegal formation
 
 24 - Fumble
-
-
 
 8 - Unnecessary Roughness/Unsportsmanlike conduct
 

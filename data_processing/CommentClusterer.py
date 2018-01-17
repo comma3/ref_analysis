@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import silhouette_score
 
 from scipy.spatial.distance import euclidean, cosine
@@ -22,14 +23,16 @@ class CommentClusterer(object):
     def __init__(self, vocab=None, vectorizer='tfidf', distance=euclidean, \
                 max_iter=100, time_scale_factor=0.005, threshold=0.1, \
                 verbose=True, print_figs=False, stop_words='english', \
-                ngram_range=(1,1), tokenizer=LemmaTokenizer()):
+                ngram_range=(1,1), tokenizer=LemmaTokenizer(),
+                cluster_method='hierarchical'):
 
         self.print_figs = print_figs
         self.verbose = verbose
 
+        self.cluster_method = cluster_method
+
         self.vectorizer = vectorizer
         self.tokenizer = tokenizer
-
         self.ngram_range = ngram_range
 
         self.distance=distance
@@ -98,7 +101,6 @@ class CommentClusterer(object):
         # Save the comment objects, tf vectors and vectorizer by game
         self.game_vector = tfs_and_comments
 
-
     def _get_silhouette_score(self, clusters):
         """
         Determines sil_score for clustering
@@ -123,12 +125,21 @@ class CommentClusterer(object):
 
         return silhouette_score(distances, labels, metric="precomputed")
 
-
-    def label_distance(self, test, center):
+    def _compute_label_distance(self, test, center):
         """
         """
         for a, b in zip(test, center):
             pass
+
+
+    def _hierachical_clustering(self, k, distance_matrix):
+
+        agger = AgglomerativeClustering(n_clusters=k, affinity='precomputed', memory=None, compute_full_tree=’auto’, linkage=’complete’)
+        agger.fit(distance_matrix)
+        print(aggr.labels_)
+
+
+
 
 
     def _k_means(self, k, dist_type='old'):
@@ -195,7 +206,7 @@ class CommentClusterer(object):
 
         return clusters
 
-    def _loop_k_means(self, max_k=3):
+    def _loop_clustering(self, max_k=3):
         """
         """
         # Can't fit if there are fewer clusters than data points
@@ -204,8 +215,12 @@ class CommentClusterer(object):
         if len(self.game_vector) <= max_k:
             print('Very few commments. Skipping.')
             return True
+
         for i in range(2, max_k): # Is there potential for multithreading here?
-            clusters = self._k_means(k=i)
+            if self.cluster_method == 'kmeans':
+                clusters = self._k_means(k=i)
+            elif self.cluster_method == 'hierarchical':
+                clusters = self._hierachical_clustering(k=i)
             sil_score = self._get_silhouette_score(clusters)
             # Add the silhouette score and clustering to a list
             self.scored_clusters.append((sil_score, clusters, i))
@@ -219,6 +234,13 @@ class CommentClusterer(object):
         """
         """
         pass
+
+    def print_hierarchical_tree(self):
+        """
+        """
+        if not self.cluster_method == 'hierarchical':
+            print('Cannot generate tree for k-means clustering!')
+
 
     def print_clusters(self, only_best=True):
         """
@@ -270,13 +292,6 @@ class CommentClusterer(object):
             return True
         if self.verbose or self.print_figs:
             self.print_clusters()
-
-    def refit(self):
-        """
-        Using the LDA generated from the rough fit, perform a better fit with
-        more clear classifications.
-        """
-        pass
 
 
 
