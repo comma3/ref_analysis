@@ -101,9 +101,11 @@ class GameAnalyzer(object):
         """
         # Clean a single text string
         if isinstance(comment_text,str):
+            replaced_teams = sub_home_away(comment_text, self.home, self.away)
             return self.model.vectorizer.transform([comment_text])
         else: # Clean whole list of comments
-            comments = np.array([comment.body for comment in self.comments])
+            replaced_teams = sub_home_away(self.comments, self.home, self.away)
+            comments = np.array([comment.body for comment in replaced_teams])
             return self.model.vectorizer.transform(comments)
 
     def classify_comments(self):

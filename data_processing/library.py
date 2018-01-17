@@ -11,6 +11,27 @@ from LemmaTokenizer import LemmaTokenizer
 from MultiTargetModel import MultiTargetModel
 
 
+def sub_home_away(docs, home, away):
+    """
+    Uses a dictionary to replace team names and nicknames with a tag indicating
+    whether they are the home or away team.
+
+    These tags are stored in the training data but generated dynamically
+    during fitting (original training text can be found from the comment id
+    field in the db).
+    """
+
+    labeled = []
+    for doc in docs:
+        for team_nick, base_team_list in team_nickname_dict.items():
+            if team_nick in labeled.lower():
+                for base_team in base_team_list
+                    if base_team in home or team_nick == home:
+                        doc.replace(team_nick, 'hometeamtrack')
+                    else:
+                        doc.replace(team_nick, 'awayteamtrack')
+        labeled.append(doc)
+    return labeled
 
 
 def load_data(thread, overwrite=False, subreddit = 'cfb',\

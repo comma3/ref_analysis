@@ -4,7 +4,7 @@ from library import *
 
 
 
-def get_label(thread, comments, already_analyzed):
+def get_label(thread, comments, home, away, already_analyzed):
     """
     """
     if thread in already_analyzed:
@@ -13,8 +13,10 @@ def get_label(thread, comments, already_analyzed):
     training_data = []
     num_comments = len(comments)
     for i, comment in enumerate(comments):
+        # Replace the names and nicknames of the team with home/away tag
+        comment = sub_home_away(comment, home, away)
         category = ''
-        print('==========================\n{} of {} Comments\nFlair: {}\n\nBody:\n{}'.format(i, num_comments, comment.author_flair_text, comment.body))
+        print('==========================\n{} of {} Comments - Home: {} Away: {}\nFlair: {}\n\nBody:\n{}'.format(i, num_comments, home, away, comment.author_flair_text, comment.body))
         while not is_cat_valid(category):
             category = input('==========================\nEnter class: ')
             if category.lower() == 'quit':
@@ -113,50 +115,60 @@ def add_to_db(training_data, db = '/data/cfb_game_db.sqlite3'):
 
 """
 Categories
-S (for sorry) indicates commenter pulls for other team.
-E for excuse
-D for disagree/dumb
-M for miss
+S - for sorry. indicates commenter pulls for other team.
+SH - sorry to the home team - explicitly labeled (e.g., sorry cougs, you got screwed)
+SA - sorry to the away team - explicitly labeled
+G - for got away with one
+GH - home got lucky
+GA - away got lucky
+E - for excuse, make up call, etc.
+D - for dumb, admits its a correct call
+C - admits its a correct call
+M - for miss
+R - for reviewed - may help remove complaints about bad calls that were overturned
+RC - original was correct
+RR - call reversed
 ----------------------------------------------
-0 - Not ref related*
-1 - General complaint*
-2 - Nonspecific bad call*
-3 - Play call* - need to differentiate bad call from bad play call
-4 - Pass Interference*
-5 - Imagined flag (shoes, gloves, etc.)*
-6 - Facemask*
-7 - Pick 6*
-14 - Late hit*
-17 - Pick/rub*
-8 - Sarcastic correct call
-9 - Nonspecific correct call
-10 - Holding*
-24 - Fumble*
-12 - Bad spot
-13 - Overturned
-14 - False Start
-15 - Incomplete pass
-16 - Complete pass
+0 - Not ref related
+1 - General complaint - try to find complaints not associated with a specific call
+2 - Nonspecific bad call - different from 1 in that it refers to a recent event not just "refs are bad"
+3 - Imagined flag - shoes, gloves, phantom, etc.
+4 - Play call - need to differentiate bad call from bad play call
+
+5 - Pass Interference
+6 - Facemask
+7 - Pick 6/Interception - should generic interception be labeled or only to try and differentiate pick route from pick(interception)?
+8 - Pick gambling (pick em)
+9 - Pick/Rub Route
+
+10 - False Start
+11 - Offsides
+12 - Holding
+13 - Encroachment
+
+13 - Bad spot
+14 - Incomplete pass
+15 - Complete pass
+16 - Grounding
+17 - Illegal forward pass
+
+17 - Late hit
 18 - Targetting
-19 - Grounding
+
 20 - Illegal formation
-21 - pick gambling (pick em)
+
+24 - Fumble
+
+
 
 8 - Unnecessary Roughness/Unsportsmanlike conduct
-9 - Offsides
-10 - False Start
-11 - Encroachment
-
 
 13 - Chop Block
 
-15 - Grounding
 16 - Hands to the face
-
 18 - Clipping
 19 - Illegal motion/shift
 20 - Illegal substitution/too many men
-21 - Illegal forward pass
 
 25 - Not fumble
 26 - Roughing the passer
@@ -179,8 +191,9 @@ if __name__ == '__main__':
     game_list = collect_game_threads()
     print(already_analyzed)
     for thread in game_list:
+        home, away = thread[2], thread[3]
         comments = load_data(thread[1], verbose=False)
-        already_analyzed, quit = get_label(thread[1], comments, already_analyzed)
+        already_analyzed, quit = get_label(thread[1], comments, home, away, already_analyzed)
         if quit == 'quit':
             pickle.dump(already_analyzed, open(analyzed_list_path, 'wb'))
             break

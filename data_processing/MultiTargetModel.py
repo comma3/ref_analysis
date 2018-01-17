@@ -36,6 +36,7 @@ class MultiTargetModel():
     def fit_classifier(self, X, y, **kwargs):
         """
         """
+        X = sub_home_away(X)
         self.X = self.vectorizer.fit_transform(X)
         self.classifier = OneVsRestClassifier(self.model(**kwargs))
         self._make_targets(y) # Modifies self.targets
