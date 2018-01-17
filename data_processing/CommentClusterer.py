@@ -10,13 +10,9 @@ from sklearn.metrics import silhouette_score
 from scipy.spatial.distance import euclidean, cosine
 from scipy.sparse import csr_matrix
 
-
-
-from library import load_data, LemmaTokenizer
+from LemmaTokenizer import LemmaTokenizer
+from library import *
 from lda import do_LDA, do_NMF
-
-from nltk import word_tokenize
-from nltk.stem import WordNetLemmatizer
 
 
 class CommentClusterer(object):
@@ -135,7 +131,7 @@ class CommentClusterer(object):
             pass
 
 
-    def _k_means(self, k):
+    def _k_means(self, k, dist_type='old'):
         """
         Performs custom k means clustering
 
@@ -162,6 +158,7 @@ class CommentClusterer(object):
                             + self.distance(comment.created_utc, center[1]) * \
                             self.time_scale_factor) for center in centers]
                 else:
+                    # Maybe cosine similarity makes sense?
                     distances = [(self.distance(tfs.todense(), center[0].todense())\
                             + self.distance(comment.created_utc, center[1]) * \
                             self.time_scale_factor) for center in centers]
@@ -170,7 +167,7 @@ class CommentClusterer(object):
                 # Collect the data for the center to use as the key
                 center_key = self._make_hashable(center[0]), center[1]
                 # Add point to the center that is closest
-                clusters[center_key].append((tfs, comment))
+                clusters[center_key].append((tfs, comment, labels))
             new_centers = []
             # Reculaate the centers of the clusters based on the points assigned
             # to each cluster
@@ -198,7 +195,7 @@ class CommentClusterer(object):
 
         return clusters
 
-    def _loop_k_means(self, max_k=10):
+    def _loop_k_means(self, max_k=3):
         """
         """
         # Can't fit if there are fewer clusters than data points
@@ -207,7 +204,7 @@ class CommentClusterer(object):
         if len(self.game_vector) <= max_k:
             print('Very few commments. Skipping.')
             return True
-        for i in range(2, max_k):
+        for i in range(2, max_k): # Is there potential for multithreading here?
             clusters = self._k_means(k=i)
             sil_score = self._get_silhouette_score(clusters)
             # Add the silhouette score and clustering to a list

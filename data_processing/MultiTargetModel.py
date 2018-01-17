@@ -26,6 +26,7 @@ class MultiTargetModel():
         self.X = None
         self.targets = None
         self.classifier = None
+        self.class_labels = None
 
         self.precision = None
         self.recall = None
@@ -45,14 +46,14 @@ class MultiTargetModel():
         """
         Convert column of stringlists (e.g., '1,12,E') to MultiLabelBinarizer
         """
-        mlb = MultiLabelBinarizer()
+        mlb = MultiLabelBinarizer(n_jobs=self.n_jobs)
         # Type casting messed up and need to get value out of tuple
         strings = y.astype(str)
         clean = [x.replace(' ', '') for x in strings]
         dummies = [x.split(',') for x in clean]
         self.targets = mlb.fit_transform(dummies)
-        self.target_classes = mlb.classes_
-        #print(self.target_classes)
+        self.class_labels = mlb.classes_
+        #print(self.class_labels)
 
     def make_predictions(self, X):
         """

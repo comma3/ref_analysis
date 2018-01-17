@@ -12,11 +12,8 @@ import praw
 
 from library import *
 from CommentClusterer import CommentClusterer
+from ClusterAnalyzer import ClusterAnalyzer
 from lda import do_LDA
-
-# Want to return something of the format:
-# team, rule, incorrect, strength, id
-# UNC, offsides, yes, 10, off001
 
 class GameAnalyzer(object):
     """
@@ -67,7 +64,6 @@ class GameAnalyzer(object):
             (flairs.add(f.strip().lower()) for f in fs)
         pickle.dump(flairs, open(pickle_path, 'wb'))
 
-
     def _get_user_scores_by_affiliation(self):
         """
         """
@@ -110,14 +106,6 @@ class GameAnalyzer(object):
             comments = np.array([comment.body for comment in self.comments])
             return self.model.vectorizer.transform(comments)
 
-    def find_clusters(self, **clusterer_params):
-        """
-        """
-        self.clusterer = CommentClusterer(**clusterer_params)
-        return self.clusterer.fit(self.ref_tfvectors, self.ref_times, self.ref_labels)
-
-
-
     def classify_comments(self):
         """
         """
@@ -135,10 +123,29 @@ class GameAnalyzer(object):
         #print(self.ref_tfvectors.shape)
         #print(self.ref_times.shape)
 
+    def find_clusters(self, **clusterer_params):
+        """
+        """
+        self.clusterer = CommentClusterer(**clusterer_params)
+        return self.clusterer.fit(self.ref_tfvectors, self.ref_times, self.ref_labels)
+
+    def analyze_clusters(self):
+        """
+        """
+        #print(self.clusterer.scored_clusters[0][1])
+        sil_score, clusters, k = self.clusterer.scored_clusters[0]
+        for cluster in clusters.values(): # dict of center: [assoc. pts]
+            call = ClusterAnalyzer(cluster, self.home, self.away, self.model.target_classes)
+            call.predict()
+
+
+
+
 if __name__ == '__main__':
 
-    with open('../ref_analysis/data/manual_vocab.csv') as f:
-        vocab = [word.strip() for word in f]
+    # Vocab list deprecated.
+    # with open('../ref_analysis/data/manual_vocab.csv') as f:
+    #     vocab = [word.strip() for word in f]
     with open('../ref_analysis/data/common-english-words.csv') as f:
         stop_words = [word.strip() for word in f]
     #print(stop_words)
@@ -158,8 +165,8 @@ if __name__ == '__main__':
         game_id, game_thread, home, away, winner = game
         analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
         analyzer.classify_comments()
-        analyzer.find_clusters(time_scale_factor=0.1, print_figs=True)
-        break
+        analyzer.find_clusters(time_scale_factor=0.01, print_figs=False)
+        analyzer.analyze_clusters()
 
 
         # if analyzer.find_clusters(vocab=vocab, stop_words=stop_words, \

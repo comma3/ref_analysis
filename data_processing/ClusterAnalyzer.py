@@ -1,15 +1,16 @@
-import sqlite3
-import pickle, os
+import sqlite3, pickle, os
+from collections import defaultdict
 from time import time
+
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
 
-import praw
+import scipy.stats as stats
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.decomposition import NMF, LatentDirichletAllocation
 
+import praw
 
 # Want to return something of the format:
 # team, rule, incorrect, strength, id
@@ -26,91 +27,121 @@ class ClusterAnalyzer(object):
         losing side.
     """
 
-    def __init__(self, comments, model, home, away):
+    def __init__(self, cluster, home, away, class_labels):
 
-        self.comments = comments
-        self.model = model
+        self.cluster = cluster
         self.home = home
         self.away = away
+        self.class_labels = class_labels
+
+        self.nicknames_dict = self._load_nicknames()
 
         self.user_dist = defaultdict(int) # d[team] : # unique poseters
-        self.home_scores = [] # votes[home] :
+        self.home_scores = []
         self.away_scores = []
-        self.unaffiliated_scores = defaultdict(list)
+        self.unaffiliated_scores = []
 
         self.team_affected = None
         self.rule = None
-        self.bad_call = None
-        self.egregiousness = 0
 
 
-        for comment in self.comments:
-            if comment.author_flair_text:
-                [self.user_dist[f] += 1 for f in comment.author_flair_text.split('/')]
+        self._collect_votes()
 
+        # for comment in self.comments:
+        #     if comment.author_flair_text:
+        #         for f in comment.author_flair_text.split('/'):
+        #             self.user_dist[f] += 1
+
+    def _load_nicknames(self):
+        """
+        """
+        return defaultdict(list)
 
 
     def _collect_votes(self):
         """
         """
-        for comment in self.comments:
+        #print(self.cluster)
+        for tf, comment, labels in self.cluster:
             if comment.author_flair_text:
                 if self.home.lower() in comment.author_flair_text.lower():
-                    self.home_scores.append((self.model.predict(comment.body), \
-                                comment.score, self._mention_team(comment.body)))
+                    self.home_scores.append((labels, comment.score,\
+                                            self._mention_team(comment)))
                 elif self.away.lower() in comment.author_flair_text.lower():
-                    self.away_scores.append(comment.score)
+                    self.away_scores.append((labels, comment.score,\
+                                            self._mention_team(comment)))
                 else:
-                    self.unaffiliated_scores.append((self.model.predict(comment.body), \
-                                comment.score, self._mention_team(comment.body)))
+                    self.unaffiliated_scores.append((labels, comment.score,\
+                                            self._mention_team(comment)))
             else:
-                self.unaffiliated_scores.append((self.model.predict(comment.body), \
-                            comment.score, self._mention_team(comment.body)))
+                self.unaffiliated_scores.append((labels, comment.score,\
+                                            self._mention_team(comment)))
 
     def predict(self):
         """
         """
+        bad_call = {
+                    'home' : 0,
+                    'away' : 0
+                    }
 
-        # Assign comments as suggesting bad call
-        # then find the votes for each of these calls
-        home_bad_call = 0
-        home_right_call = 0
-        home_total = 0
+        bad_call_scores =   {
+                            'home' : 0,
+                            'away' : 0
+                            }
 
-        for com_class, score, mentioned in self.home_scores:
-            if category == 'D':
-                home_disagree += score
-            if category == 'E':
-            # Should add something like len(categories) > 1 (discussion of multiple fouls is likely an excuse)
-            # Sort of implicit admission
-                home_positive += 1
-                # Probably want to use these votes for something
-            if category == 'S':
-                away_bad_call += 1
-            else:
-                home_negative += 1
-            home_total += score
+        print(len(self.home_scores))
+        print(len(self.away_scores))
+        print(len(self.unaffiliated_scores))
+        if self.home_scores:
+            class_totals = np.zeros(self.home_scores[0][0].shape)
+        elif self.away_scores:
+            class_totals = np.zeros(self.away_scores[0][0].shape)
+        else:
+            class_totals = np.zeros(self.unaffiliated_scores[0][0].shape)
 
+        print(class_totals)
+
+        # for key, score_list in [('home', self.home_scores), ('away', self.away_scores), ('', self.unaffiliated_scores)]
+        if self.home_scores:
+            for comment_classes, score, mentioned in self.home_scores:
+                class_totals += comment_classes
+                if comment_classes[np.where(self.class_labels == 'D')]:
+                    # We are going to skip these for now. Will apply their effects
+                    # when we have a better idea of which team got the penalty
+                    continue
+                if comment_classes[np.where(self.class_labels == 'S')]:
+                    bad_call['away'] += 1
+                    bad_call_scores['away'] += score
+                elif comment_classes[np.where(self.class_labels == 'E')]:
+                    bad_call['away'] += 1
+                    bad_call_scores['away'] -= score
+                else:
+                    bad_call['home'] += 1
+                    bad_call_scores['home'] += score
+
+        print(self.class_labels[np.argsort(class_totals)])
 
 
     def _mention_team(self, comment):
         """
         """
-
+        teams = set()
+        we = set()
         for word in comment.body.lower():
             if word in self.home:
-                return self.home
-            elif word in self.away:
-                return self.away
+                teams.add(self.home)
+            if word in self.away:
+                teams.add(self.away)
             elif word == 'we' or word == 'us':
                 if self.home in comment.author_flair_text.lower():
-                    return self.home
-                elif self.away in comment.author_flair_text.lower()
-                    return self.away
-            elif word in nicknames_dict[self.home]:
-                return self.home
-            elif word in nicknames_dict[self.away]:
-                return self.away
+                    we.add(self.home)
+                elif self.away in comment.author_flair_text.lower():
+                    we.add(self.away)
+            elif word in self.nicknames_dict[self.home]:
+                teams.add(self.home)
+            elif word in self.nicknames_dict[self.away]:
+                teams.add(self.away)
         return None
 
     # Leave here to remember these
