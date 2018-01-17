@@ -34,8 +34,6 @@ class ClusterAnalyzer(object):
         self.away = away
         self.class_labels = class_labels
 
-        self.nicknames_dict = self._load_nicknames()
-
         self.user_dist = defaultdict(int) # d[team] : # unique poseters
         self.home_scores = []
         self.away_scores = []
@@ -44,18 +42,12 @@ class ClusterAnalyzer(object):
         self.team_affected = None
         self.rule = None
 
-
         self._collect_votes()
 
         # for comment in self.comments:
         #     if comment.author_flair_text:
         #         for f in comment.author_flair_text.split('/'):
         #             self.user_dist[f] += 1
-
-    def _load_nicknames(self):
-        """
-        """
-        return defaultdict(list)
 
 
     def _collect_votes(self):
@@ -99,8 +91,6 @@ class ClusterAnalyzer(object):
             class_totals = np.zeros(self.away_scores[0][0].shape)
         else:
             class_totals = np.zeros(self.unaffiliated_scores[0][0].shape)
-
-        print(class_totals)
 
         # for key, score_list in [('home', self.home_scores), ('away', self.away_scores), ('', self.unaffiliated_scores)]
         if self.home_scores:

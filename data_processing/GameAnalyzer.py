@@ -104,8 +104,8 @@ class GameAnalyzer(object):
             replaced_teams = sub_home_away(comment_text, self.home, self.away)
             return self.model.vectorizer.transform([comment_text])
         else: # Clean whole list of comments
-            replaced_teams = sub_home_away(self.comments, self.home, self.away)
-            comments = np.array([comment.body for comment in replaced_teams])
+            #replaced_teams = sub_home_away(self.comments, self.home, self.away)
+            comments = np.array([comment.body for comment in self.comments])
             return self.model.vectorizer.transform(comments)
 
     def classify_comments(self):

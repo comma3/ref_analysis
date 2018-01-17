@@ -36,6 +36,15 @@ def get_label(thread, comments, home, away, already_analyzed):
                     training_data.append((temp_comment, temp_thread, temp_flair, temp_body, temp_time, category))
                 category = ''
                 print('Now enter category for the following:\n{} of {} Comments\nFlair: {}\n\nBody:\n{}'.format(i, num_comments, comment.author_flair_text, comment.body))
+            elif category.lower() == 'modify':
+
+                to_replace = input('Replace which word? ')
+                homeaway = input('with home or away? ')
+                if homeaway == 'home':
+                    comment.replace(to_replace, 'hometeamtrack')
+                elif homeawy == 'away':
+                    comment.replace(to_replace, 'awayteamtrack')
+                category = input('==========================\nEnter class: ')
 
         training_data.append((str(comment), thread, comment.author_flair_text, comment.body, comment.created_utc, category))
         if i % 25 == 0:

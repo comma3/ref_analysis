@@ -25,7 +25,7 @@ def sub_home_away(docs, home, away):
     for doc in docs:
         for team_nick, base_team_list in team_nickname_dict.items():
             if team_nick in labeled.lower():
-                for base_team in base_team_list
+                for base_team in base_team_list:
                     if base_team in home or team_nick == home:
                         doc.replace(team_nick, 'hometeamtrack')
                     else:
