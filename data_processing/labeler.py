@@ -4,7 +4,7 @@ from library import *
 
 
 
-def get_label(thread, comments, home, away, already_analyzed):
+def get_label(thread, comments, home, away, already_analyzed, team_nickname_dict):
     """
     """
     if thread in already_analyzed:
@@ -14,9 +14,9 @@ def get_label(thread, comments, home, away, already_analyzed):
     num_comments = len(comments)
     for i, comment in enumerate(comments):
         # Replace the names and nicknames of the team with home/away tag
-        comment = sub_home_away(comment, home, away)
+        altered_text = sub_home_away(comment.body, home, away, team_nickname_dict)
         category = ''
-        print('==========================\n{} of {} Comments - Home: {} Away: {}\nFlair: {}\n\nBody:\n{}'.format(i, num_comments, home, away, comment.author_flair_text, comment.body))
+        print('==========================\n{} of {} Comments - Home: {} Away: {}\nFlair: {}\n\nBody:\n{}'.format(i, num_comments, home, away, comment.author_flair_text, altered_text))
         while not is_cat_valid(category):
             category = input('==========================\nEnter class: ')
             if category.lower() == 'quit':
@@ -35,18 +35,17 @@ def get_label(thread, comments, home, away, already_analyzed):
                     temp_comment, temp_thread, temp_flair, temp_body, temp_time, _ = training_data.pop()
                     training_data.append((temp_comment, temp_thread, temp_flair, temp_body, temp_time, category))
                 category = ''
-                print('Now enter category for the following:\n{} of {} Comments\nFlair: {}\n\nBody:\n{}'.format(i, num_comments, comment.author_flair_text, comment.body))
+                print('Now enter category for the following:\n{} of {} Comments\nFlair: {}\n\nBody:\n{}'.format(i, num_comments, comment.author_flair_text, altered_text))
             elif category.lower() == 'modify':
-
                 to_replace = input('Replace which word? ')
                 homeaway = input('with home or away? ')
                 if homeaway == 'home':
-                    comment.replace(to_replace, 'hometeamtrack')
-                elif homeawy == 'away':
-                    comment.replace(to_replace, 'awayteamtrack')
+                    altered_text.replace(to_replace, 'hometeamtrack')
+                elif homeaway == 'away':
+                    altered_text.replace(to_replace, 'awayteamtrack')
                 category = input('==========================\nEnter class: ')
 
-        training_data.append((str(comment), thread, comment.author_flair_text, comment.body, comment.created_utc, category))
+        training_data.append((str(comment), thread, comment.author_flair_text, altered_text, comment.created_utc, category))
         if i % 25 == 0:
             # Add periodically
             add_to_db(training_data)
@@ -64,18 +63,18 @@ def is_cat_valid(string):
         return False
     for cat in string.split(','):
         cat = cat.strip()
-        if cat in 'MEDS':
+        if cat in 'SHSAGHGAEDCMRCRR' and len(cat) <=2:
             continue
         try:
             num = int(cat)
         except ValueError:
             print('Bad category. Try again or type "quit" to exit.')
             return False
-        if num < 0 or num > 30:
+        if num < 0 or num > 50:
             print('Bad category. Try again or type "quit" to exit.')
             return False
         for c in cat:
-            if c not in '0123456789MEDS':
+            if c not in '0123456789MEDSHARCG':
                 print('Bad category. Try again or type "quit" to exit.')
                 return False
     return True
@@ -145,15 +144,15 @@ RR - call reversed
 4 - Play call - need to differentiate bad call from bad play call
 
 5 - Pass Interference
-6 - Facemask
-7 - Pick 6/Interception - should generic interception be labeled or only to try and differentiate pick route from pick(interception)?
-8 - Pick gambling (pick em)
-9 - Pick/Rub Route
+6 - Pick 6/Interception - should generic interception be labeled or only to try and differentiate pick route from pick(interception)?
+7 - Pick gambling (pick em)
+8 - Pick/Rub Route
 
-10 - False Start
-11 - Offsides
+9 - False Start
+10 - Offsides
+11 - Encroachment/neutral zone infraction
+
 12 - Holding
-13 - Encroachment
 
 13 - Bad spot
 14 - Incomplete pass
@@ -161,18 +160,17 @@ RR - call reversed
 16 - Grounding
 17 - Illegal forward pass
 
-17 - Late hit
 18 - Targetting
+19 - Late hit
+20 - Personal foul
+21 - Unnecessary roughness
+22 - Unsportsmanlike conduct
 
-
-
-
-
-20 - Illegal formation
+23 - Facemask
 
 24 - Fumble
+25 - Not fumble
 
-8 - Unnecessary Roughness/Unsportsmanlike conduct
 
 13 - Chop Block
 
@@ -181,7 +179,7 @@ RR - call reversed
 19 - Illegal motion/shift
 20 - Illegal substitution/too many men
 
-25 - Not fumble
+
 26 - Roughing the passer
 27 - Roughing/running into the kicker
 28 - Roughing the snapper
@@ -191,7 +189,7 @@ RR - call reversed
 """
 
 if __name__ == '__main__':
-
+    team_nickname_dict_path = 'team_list.csv'
     analyzed_list_path = 'already_analyzed.pkl'
 
     if os.path.isfile(analyzed_list_path):
@@ -199,12 +197,17 @@ if __name__ == '__main__':
     else:
         already_analyzed = set()
 
-    game_list = collect_game_threads()
+    if os.path.isfile(team_nickname_dict_path):
+        team_nickname_dict = make_team_nickname_dict(team_nickname_dict_path)
+    else:
+        raise ValueError("You have to have a team nickname dict because I haven't gotten around to handling it without one!")
+
+    game_list = collect_game_threads(random=True)
     print(already_analyzed)
     for thread in game_list:
         home, away = thread[2], thread[3]
         comments = load_data(thread[1], verbose=False)
-        already_analyzed, quit = get_label(thread[1], comments, home, away, already_analyzed)
+        already_analyzed, quit = get_label(thread[1], comments, home, away, already_analyzed, team_nickname_dict)
         if quit == 'quit':
             pickle.dump(already_analyzed, open(analyzed_list_path, 'wb'))
             break

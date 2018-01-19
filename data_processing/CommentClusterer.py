@@ -10,37 +10,41 @@ from sklearn.metrics import silhouette_score
 
 from scipy.spatial.distance import euclidean, cosine
 from scipy.sparse import csr_matrix
+from scipy.cluster.hierarchy import dendrogram
+
+from matplotlib import pyplot as plt
 
 from LemmaTokenizer import LemmaTokenizer
 from library import *
 from lda import do_LDA, do_NMF
 
 
+
+
 class CommentClusterer(object):
     """
     """
 
-    def __init__(self, vocab=None, vectorizer='tfidf', distance=euclidean, \
-                max_iter=100, time_scale_factor=0.005, threshold=0.1, \
-                verbose=True, print_figs=False, stop_words='english', \
-                ngram_range=(1,1), tokenizer=LemmaTokenizer(),
+    def __init__(self, vocab=None, distance=cosine, \
+                max_iter=100, time_scale_factor=0.00005, threshold=0.1, \
+                verbose=True, print_figs=False, max_k=3, min_comments=100,
                 cluster_method='hierarchical'):
+
+        if min_comments < max_k:
+            raise ValueError('Minimum comments must be greater than maximum k!')
 
         self.print_figs = print_figs
         self.verbose = verbose
 
         self.cluster_method = cluster_method
 
-        self.vectorizer = vectorizer
-        self.tokenizer = tokenizer
-        self.ngram_range = ngram_range
-
-        self.distance=distance
-        self.vocab = vocab
-        self.stop_words=stop_words
-        self.max_iter = max_iter
         self.time_scale_factor = time_scale_factor
+        self.distance = distance
         self.threshold = threshold
+
+        self.max_iter = max_iter
+        self.max_k = max_k
+        self.min_comments = min_comments
 
         self.game_clusters = []
         self.game_vector = []
@@ -62,84 +66,69 @@ class CommentClusterer(object):
         """
         return pickle.loads(hashable)
 
-
-    def _add_tf_vectors(self):
+    def _convert_labels_to_dict(self, comments, labels):
         """
-        Adds term frequency vector to game documents.
-
-        Optionally will filter only officiating related comments if a vocabulary is provided.
         """
+        out = defaultdict(list)
+        for comment, label in zip(comments, labels):
+            out[label].append(comment)
+        return out
 
-        if self.vectorizer.lower() == 'count':
-            self.tf_vectorizer = CountVectorizer(stop_words=self.stop_words, tokenizer=self.tokenizer)
-        else:
-            self.tf_vectorizer = TfidfVectorizer(stop_words=self.stop_words, tokenizer=self.tokenizer)
 
-        ref_related = []
-        if any(self.vocab):
-            for comment in self.documents:
-                for word in comment.body.lower().split():
-                    if word in self.vocab:
-                        ref_related.append(comment)
-                        break
-        else:
-            ref_related = [comment for comment in self.documents]
-
-        # Fit the vectorizer using all of the words in a game_documents
-        #print([comment.body for comment in ref_related])
-        try:
-            self.tf_vectorizer.fit([comment.body for comment in ref_related])
-        except ValueError:
-            # Game didn't contain any ref related events
-            return None
-        tfs_and_comments = []
-        for comment in ref_related:
-            # Transform wants a list
-            tfs_and_comments.append((self.tf_vectorizer.transform([comment.body]),
-                                comment))
-
-        # Save the comment objects, tf vectors and vectorizer by game
-        self.game_vector = tfs_and_comments
-
-    def _get_silhouette_score(self, clusters):
+    def _get_silhouette_score(self, clusters, distances=None):
         """
         Determines sil_score for clustering
         """
         # Careful with names here: points is the points from the clusters and data is the combined points
         # Label the points in each cluster and add all of the points to a single list for distance calculation
-        labels = []
-        combined_points = []
-        for label, cluster_points in enumerate(clusters.values()):
-            for cluster_point in cluster_points:
-                combined_points.append(cluster_point)
-                labels.append(label)
+        if self.cluster_method == 'kmeans':
+            labels = []
+            combined_points = []
+            for label, cluster_points in enumerate(clusters.values()):
+                for cluster_point in cluster_points:
+                    combined_points.append(cluster_point)
+                    labels.append(label)
 
-        # I bet there is a np way to do this better
-        # Seems decently fast though...
-        # Needs to be reculculated for every k because the points get shuffled
-        # by kmeans so the distance matrix will change with k.
-        distances = [[self.distance(p1[0].todense(), p2[0].todense()) + \
-                    self.distance(p1[1].created_utc, p2[1].created_utc) * \
-                    self.time_scale_factor for p2 in combined_points]
-                    for p1 in combined_points]
+            # I bet there is a np way to do this better
+            # Seems decently fast though...
+            # Needs to be reculculated for every k because the points get shuffled
+            # by kmeans so the distance matrix will change with k.
+            distances = [[self.distance(p1[0].todense(), p2[0].todense()) + \
+                        abs(p1[1].created_utc - p2[1].created_utc) * \
+                        self.time_scale_factor for p2 in combined_points]
+                        for p1 in combined_points]
+
+        elif self.cluster_method == 'hierarchical':
+            labels = clusters.labels_
 
         return silhouette_score(distances, labels, metric="precomputed")
 
-    def _compute_label_distance(self, test, center):
+    def _compute_label_distance(self, pt1, pt2):
         """
         """
-        for a, b in zip(test, center):
-            pass
+
+        # These similarity scores could potentially be determined in an iterative fashion from the data
+        # by finding the class that are most frequently in clusters together.
+
+        time_distance = abs(pt1[1].created_utc - pt2[1].created_utc)
+
+        label_distance = 0
+
+        for i, lab1 in enumerate(pt1[2]):
+            for j, lab2 in enumerate(pt2[2]):
+                if i == j:
+                    if not lab1 == lab2:
+                        label_distance += 1
+
+        return (time_distance * self.time_scale_factor) + label_distance
 
 
     def _hierachical_clustering(self, k, distance_matrix):
 
-        agger = AgglomerativeClustering(n_clusters=k, affinity='precomputed', memory=None, compute_full_tree=’auto’, linkage=’complete’)
+        agger = AgglomerativeClustering(n_clusters=k, affinity='precomputed',\
+                    memory=None, compute_full_tree='auto', linkage='complete') # memory should speed this up?
         agger.fit(distance_matrix)
-        print(aggr.labels_)
-
-
-
+        return agger
 
 
     def _k_means(self, k, dist_type='old'):
@@ -158,7 +147,6 @@ class CommentClusterer(object):
             # Initialize centers and get time from comment -> needs to be float
         centers = [(pt[0], pt[1].created_utc, pt[2]) for pt in random.sample(self.game_vector, k)]
 
-
         for i in range(self.max_iter):
             clusters = defaultdict(list)
             # Calculate the distance of each point to each center and assignment
@@ -166,12 +154,12 @@ class CommentClusterer(object):
             for tfs, comment, labels in self.game_vector:
                 if dist_type == 'old':
                     distances = [(self.distance(tfs.todense(), center[0].todense())\
-                            + self.distance(comment.created_utc, center[1]) * \
+                            + abs(comment.created_utc - center[1]) * \
                             self.time_scale_factor) for center in centers]
                 else:
-                    # Maybe cosine similarity makes sense?
+                    # Always euclidean for time. TF distance defined in object
                     distances = [(self.distance(tfs.todense(), center[0].todense())\
-                            + self.distance(comment.created_utc, center[1]) * \
+                            + abs(comment.created_utc - center[1]) * \
                             self.time_scale_factor) for center in centers]
                 # Determine which center is closest
                 center = centers[np.argmin(distances)]
@@ -193,7 +181,7 @@ class CommentClusterer(object):
             dist = 0
             for center, new_center in zip(centers, new_centers):
                 dist += self.distance(new_center[0].todense(), \
-                        center[0].todense()) + self.distance(new_center[1], \
+                        center[0].todense()) + abs(new_center[1] - \
                         center[1]) * self.time_scale_factor
             centers = new_centers
             if True: #self.verbose:
@@ -206,24 +194,30 @@ class CommentClusterer(object):
 
         return clusters
 
-    def _loop_clustering(self, max_k=3):
+    def _loop_clustering(self):
         """
         """
         # Can't fit if there are fewer clusters than data points
         # Probably don't want to put much stock into games with fewer than
-        # max_k comments anyway
-        if len(self.game_vector) <= max_k:
+        if len(self.game_vector) <= self.min_comments:
             print('Very few commments. Skipping.')
             return True
 
-        for i in range(2, max_k): # Is there potential for multithreading here?
+        if self.cluster_method == 'hierarchical':
+            distances = [[self._compute_label_distance(com_i, com_j) for com_i in self.game_vector] for com_j in self.game_vector]
+        print(distances[-1])
+        for i in range(2, self.max_k): # Is there potential for multithreading here?
             if self.cluster_method == 'kmeans':
-                clusters = self._k_means(k=i)
+                clusters = self._k_means(i)
+                sil_score = self._get_silhouette_score(clusters)
+                self.scored_clusters.append((sil_score, clusters, i))
             elif self.cluster_method == 'hierarchical':
-                clusters = self._hierachical_clustering(k=i)
-            sil_score = self._get_silhouette_score(clusters)
+                clusters = self._hierachical_clustering(i, distances)
+                sil_score = self._get_silhouette_score(clusters, distances)
+                self.plot_dendrogram(clusters)
+                self.scored_clusters.append((sil_score, self._convert_labels_to_dict(self.game_vector, clusters.labels_), i))
             # Add the silhouette score and clustering to a list
-            self.scored_clusters.append((sil_score, clusters, i))
+        print(len(self.scored_clusters))
         # Find the k with the lowest silhouette_score and add the clusters
         # to a list. len(clusters) will give k, so its not stored)
         self.scored_clusters.sort(reverse=True)
@@ -235,17 +229,32 @@ class CommentClusterer(object):
         """
         pass
 
-    def print_hierarchical_tree(self):
+    def plot_dendrogram(self, clusters):
         """
+        Adapted from scipy documentation.
         """
         if not self.cluster_method == 'hierarchical':
             print('Cannot generate tree for k-means clustering!')
+            return
 
+        # Children of hierarchical clustering
+        children = clusters.children_
+        # Distances between each pair of children
+        # Since we don't have this information, we can use a uniform one for plotting
+        distance = np.arange(children.shape[0])
+        # The number of observations contained in each cluster level
+        no_of_observations = np.arange(2, children.shape[0]+2)
+        # Create linkage matrix and then plot the dendrogram
+        linkage_matrix = np.column_stack([children, distance, no_of_observations]).astype(float)
+        # Plot the corresponding dendrogram
+        dendrogram(linkage_matrix, labels=clusters.labels_)
+        plt.show()
 
     def print_clusters(self, only_best=True):
         """
         """
-
+        if self.cluster_method == 'hierarchical':
+            return
         for score, clusters, k in self.scored_clusters:
             print('K = {}'.format(len(clusters)))
             for num, center in enumerate(clusters):
@@ -288,7 +297,7 @@ class CommentClusterer(object):
         #self._add_tf_vectors()
         self.game_vector = list(zip(tf_vectors, comments, labels))
 
-        if self._loop_k_means():
+        if self._loop_clustering():
             return True
         if self.verbose or self.print_figs:
             self.print_clusters()
@@ -303,7 +312,7 @@ if __name__ == '__main__':
         stop_words = [word.strip() for word in f]
     #print(stop_words)
     documents = load_data(pickle_path=pickle_path, n_games=None, overwrite=True)
-    print(len(documents))
+    #print(len(documents))
     clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, time_scale_factor=0.1, print_figs=True, ngram_range=(1,3))
     clusterer.fit(documents)
 

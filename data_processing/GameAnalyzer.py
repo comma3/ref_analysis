@@ -134,7 +134,7 @@ class GameAnalyzer(object):
     def analyze_clusters(self):
         """
         """
-        #print(self.clusterer.scored_clusters[0][1])
+        print(self.clusterer.scored_clusters[0][1])
         sil_score, clusters, k = self.clusterer.scored_clusters[0]
         for cluster in clusters.values(): # dict of center: [assoc. pts]
             call = ClusterAnalyzer(cluster, self.home, self.away, self.model.target_classes)
@@ -167,7 +167,9 @@ if __name__ == '__main__':
         game_id, game_thread, home, away, winner = game
         analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
         analyzer.classify_comments()
-        analyzer.find_clusters(time_scale_factor=0.01, print_figs=False)
+        if analyzer.find_clusters(time_scale_factor=0.01, print_figs=False):
+            print("Game didn't have enough comments")
+            continue
         analyzer.analyze_clusters()
 
 

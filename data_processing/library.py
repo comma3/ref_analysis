@@ -1,4 +1,5 @@
-import sqlite3, os, pickle, random, time
+import sqlite3, os, pickle, random, time, csv
+from collections import OrderedDict
 
 import numpy as np
 
@@ -8,10 +9,23 @@ from sklearn.naive_bayes import MultinomialNB
 import praw
 
 from LemmaTokenizer import LemmaTokenizer
-from MultiTargetModel import MultiTargetModel
+#from MultiTargetModel import MultiTargetModel
+
+def make_team_nickname_dict(filename):
+    """
+    Loads team nickname dict from disk.
+    """
+    dictionaryoutput = OrderedDict()
+    with open(filename) as file:
+        entries = list(filter(bool, list(csv.reader(file)))) #iterator but we need to sort and get rid of empty strings
+        entries.sort(key=lambda x: len(x[0]), reverse=True) # sort by the length of the key
+        for entry in entries:
+            dictionaryoutput[entry[0]] = set(filter(bool, entry[1:])) # Convet list of base_teams to set
+        print(dictionaryoutput)
+    return dictionaryoutput
 
 
-def sub_home_away(docs, home, away):
+def sub_home_away(doc, home, away, team_nickname_dict):
     """
     Uses a dictionary to replace team names and nicknames with a tag indicating
     whether they are the home or away team.
@@ -20,18 +34,34 @@ def sub_home_away(docs, home, away):
     during fitting (original training text can be found from the comment id
     field in the db).
     """
+    # Should probably just get run once per game
+    standard_home = team_nickname_dict[home]
+    if len(standard_home) > 1:
+        raise ValueError("Home team name not unique. Received {} and gave {}.".format(home, standard_home))
 
-    labeled = []
-    for doc in docs:
-        for team_nick, base_team_list in team_nickname_dict.items():
-            if team_nick in labeled.lower():
-                for base_team in base_team_list:
-                    if base_team in home or team_nick == home:
-                        doc.replace(team_nick, 'hometeamtrack')
-                    else:
-                        doc.replace(team_nick, 'awayteamtrack')
-        labeled.append(doc)
-    return labeled
+    standard_away = team_nickname_dict[away]
+    if len(standard_away) > 1:
+        raise ValueError("Home team name not unique. Received {} and gave {}.".format(away, standard_away))
+
+    doc = doc.lower()
+    # base_team is the standardized unique team name determined from the flair.
+    # team_nickname_dict is an ordered dict that's ordered by reverse length of the key
+    # we want to replace the longest string possible first
+    for team_nick, base_team_set in team_nickname_dict.items():
+        if ' {} '.format(team_nick) in doc or ' {}.'.format(team_nick) in doc or \
+        ' {} '.format(team_nick) in doc or ' {}!'.format(team_nick) in doc or \
+        ' {},'.format(team_nick) in doc or ' {}:'.format(team_nick) in doc or \
+        ' {};'.format(team_nick) in doc or ' {}-'.format(team_nick) in doc or \
+        " {}'".format(team_nick) in doc or ' {}"'.format(team_nick) in doc or
+        doc.endswith(' {}'.format(team_nick)) or doc.startswith('{} '.format(team_nick)): # Check whether the team is mentioned in the document
+            for base_team in base_team_set:
+                # If the nickname is appropriate for the home team (i.e., don't replace blindly)
+                if base_team in standard_home: #standards are sets
+                    doc = doc.replace(team_nick, 'hometeamtrack')
+                elif base_team in standard_away:
+                    doc = doc.replace(team_nick, 'awayteamtrack')
+
+    return doc
 
 
 def load_data(thread, overwrite=False, subreddit = 'cfb',\
@@ -90,7 +120,7 @@ def load_data(thread, overwrite=False, subreddit = 'cfb',\
         print('Finished loading data!')
     return game_documents # list (games) of lists of praw comment objects
 
-def collect_game_threads(db='/data/cfb_game_db.sqlite3', n_games=None):
+def collect_game_threads(db='/data/cfb_game_db.sqlite3', n_games=None, random=False):
     """
     Makes query to database to collect game thread ids.
 
@@ -119,6 +149,8 @@ def collect_game_threads(db='/data/cfb_game_db.sqlite3', n_games=None):
                     FROM
                     games
                     """
+    if random:
+        query = query + "ORDER BY RANDOM()"
     conn = sqlite3.connect(db)
     curr = conn.cursor()
     curr.execute(query)
@@ -186,4 +218,4 @@ def get_MultiTargetModel(pickle_path='model.pkl', db='/data/cfb_game_db.sqlite3'
 
 
 if __name__ == '__main__':
-    load_data(n_games=1000, pickle_path='../ref_analysis/big_1000.pkl', overwrite=True)
+    make_team_nickname_dict('team_list.csv')
