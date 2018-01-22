@@ -202,7 +202,7 @@ class CommentClusterer(object):
 
         if self.cluster_method == 'hierarchical':
             distances = [[self._compute_label_distance(com_i, com_j) for com_i in self.game_vector] for com_j in self.game_vector]
-        print(distances[-1])
+        #print(distances[-1])
         for i in range(2, self.max_k): # Is there potential for multithreading here?
             if self.cluster_method == 'kmeans':
                 clusters = self._k_means(i)
@@ -214,7 +214,7 @@ class CommentClusterer(object):
                 self.plot_dendrogram(clusters)
                 self.scored_clusters.append((sil_score, self._convert_labels_to_dict(self.game_vector, clusters.labels_), i))
             # Add the silhouette score and clustering to a list
-        print(len(self.scored_clusters))
+        #print(len(self.scored_clusters))
         # Find the k with the lowest silhouette_score and add the clusters
         # to a list. len(clusters) will give k, so its not stored)
         self.scored_clusters.sort(reverse=True)

@@ -12,6 +12,8 @@ from sklearn.decomposition import NMF, LatentDirichletAllocation
 
 import praw
 
+from library import *
+
 # Want to return something of the format:
 # team, rule, incorrect, strength, id
 # UNC, offsides, yes, 10, off001
@@ -29,7 +31,7 @@ class ClusterAnalyzer(object):
 
     def __init__(self, cluster, home, away, tags, nickname_dict_path='team_list.csv'):
 
-        self.team_nickname_dict = make_team_nickname_dict(nickname_dict_path)
+        self.nicknames_dict = make_team_nickname_dict(nickname_dict_path)
 
         self.cluster = cluster
         self.home = home
@@ -39,14 +41,13 @@ class ClusterAnalyzer(object):
         self.home_scores = []
         self.away_scores = []
         self.unaffiliated_scores = []
-        self._collect_votes
+        self._collect_votes()
 
-        self.tag_labels = tags
+        self.class_tags = tags
         self.tag_counts = self._get_class_array()
 
         self.team_affected = None
         self.rule = None
-
 
     def _get_class_array(self):
         """
@@ -56,7 +57,10 @@ class ClusterAnalyzer(object):
             return np.zeros(self.home_scores[0][0].shape)
         elif self.away_scores:
             return np.zeros(self.away_scores[0][0].shape)
-        return np.zeros(self.unaffiliated_scores[0][0].shape)
+        elif self.unaffiliated_scores:
+            return np.zeros(self.unaffiliated_scores[0][0].shape)
+        else:
+            raise Exception('wtf')
 
     def _collect_votes(self):
         """
@@ -82,7 +86,7 @@ class ClusterAnalyzer(object):
         Checks a variety of nicknames for match. For example, lsu is given
         by flair, but home team is given by Lousiana State.
         """
-        if self.team_nickname_dict[self.home] in comment.author_flair_text.lower():
+        if self.nicknames_dict[self.home] in comment.author_flair_text.lower():
             return True
 
 
@@ -102,18 +106,18 @@ class ClusterAnalyzer(object):
 
         # Make a loop so we can easily keep the algorithm the same for both
         for score_list, same, opposite in [(self.home_scores, 'home', 'away'), \
-                                            (self.away_scores, 'away', 'home')]
+                                            (self.away_scores, 'away', 'home')]:
             if score_list:
                 for comment_tags, score, mentioned in score_list:
                     self.tag_counts += comment_tags
-                    if comment_classes[np.where(self.class_labels == 'D')]:
+                    if comment_tags[np.where(self.class_tags == 'D')]:
                         # We are going to skip these for now. Will apply their effects
                         # when we have a better idea of which team got the penalty
                         continue
-                    if comment_classes[np.where(self.class_labels == 'S')]:
+                    if comment_tags[np.where(self.class_tags == 'S')]:
                         bad_call[opposite] += 1
                         bad_call_scores[opposite] += score
-                    elif comment_classes[np.where(self.class_labels == 'E')]:
+                    elif comment_tags[np.where(self.class_tags == 'E')]:
                         bad_call[opposite] += 1
                         bad_call_scores[opposite] -= score
                     else: # Just assume they are complaining
@@ -121,13 +125,40 @@ class ClusterAnalyzer(object):
                         bad_call_scores[same] += score
 
         if self.unaffiliated_scores:
-            for comment_tags, score, mentioned in self.unaffiliated_fans:
+            for comment_tags, score, mentioned in self.unaffiliated_scores:
                 self.tag_counts += comment_tags
-                if comment_classes[np.where(self.class_labels == 'S')]:
+                if mentioned:
+                    if comment_tags[np.where(self.class_tags == 'S')]:
+                        if ('home' not in mentioned and 'away' in mentioned) \
+                            or \
+                            ('home' in mentioned and 'away' not in mentioned):
+                            bad_call[mentioned[0]] += 1
+                            bad_call_scores[mentioned[0]] += score
+                    if comment_tags[np.where(self.class_tags == 'G')]:
+                        if 'home' in mentioned and 'away' in mentioned:
+                            continue
+                        else:
+                            if 'home' in mentioned:
+                                bad_call['away'] += 1
+                                bad_call_scores['away'] += score
+                            else:
+                                bad_call['home'] += 1
+                                bad_call_scores['away'] += score
 
+                elif comment_tags[np.where(self.class_tags == 'SA')] and \
+                    not comment_tags[np.where(self.class_tags == 'SH')]:
+                    bad_call['away'] += 1
+                    bad_call_scores['away'] += score
+                elif comment_tags[np.where(self.class_tags == 'GH')] and \
+                    not comment_tags[np.where(self.class_tags == 'SH')]:
+                    bad_call['away'] += 1
+                    bad_call_scores['away'] += score
 
         self._set_rule()
-
+        print('Rule: {}'.format(self.rule))
+        print('Bad call?')
+        print(bad_call)
+        print(bad_call_scores)
 
 
     def _set_rule(self):
@@ -137,12 +168,13 @@ class ClusterAnalyzer(object):
         """
         found = False
         missed = False
-        for code in self.tag_labels[np.argsort(self.tag_counts)][::-1]:
+        print(self.class_tags[np.argsort(self.tag_counts)][::-1])
+        for code in self.class_tags[np.argsort(self.tag_counts)][::-1]:
             if found: # Check if missed is the next most frequent ruel
                 if code == 'M':
                     missed = True
                 break
-            if code in '1,2,SHSAGHGAEDCMRCRR': # 1 and 2 are separated by commas to avoid matching 12
+            if code in '0,1,2,3,4SHSAGHGAEDCMRCRR': # 0-4 are separated by commas to avoid matching, eg, 12
                 continue
             elif code == 'M':
                 missed = True
@@ -159,13 +191,13 @@ class ClusterAnalyzer(object):
     def _mention_team(self, comment):
         """
         """
-        teams = set()
+        teams = []
         for nick, full_teams in self.nicknames_dict.items():
             if nick in comment.body:
                 if self.home in full_teams:
-                    teams.add('home')
+                    teams.append('home')
                 if self.away in full_teams:
-                    teams.add('away')
+                    teams.append('away')
         return None
 
     # Leave here to remember these

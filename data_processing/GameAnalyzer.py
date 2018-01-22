@@ -25,7 +25,7 @@ class GameAnalyzer(object):
         self.model = model # MultiTargetModel
         self.game_id = game_id
         self.game_thread = game_thread
-        self.home = Shome.lower()
+        self.home = home.lower()
         self.away = away.lower()
         self.winner = winner.lower()
 
@@ -136,13 +136,13 @@ class GameAnalyzer(object):
     def find_clusters(self, **clusterer_params):
         """
         """
-        self.clusterer = CommentClusterer(**clusterer_params)
+        self.clusterer = CommentClusterer(min_comments=25, **clusterer_params)
         return self.clusterer.fit(self.ref_tfvectors, self.ref_times, self.ref_labels)
 
     def analyze_clusters(self):
         """
         """
-        print(self.clusterer.scored_clusters[0][1])
+        #print(self.clusterer.scored_clusters[0][1])
         sil_score, clusters, k = self.clusterer.scored_clusters[0]
         for cluster in clusters.values(): # dict of center: [assoc. pts]
             call = ClusterAnalyzer(cluster, self.home, self.away, self.model.target_classes)
@@ -176,26 +176,13 @@ if __name__ == '__main__':
         analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
         analyzer.classify_comments()
         if analyzer.find_clusters(time_scale_factor=0.01, print_figs=False):
-            print("Game didn't have enough comments")
+            #print("Game didn't have enough comments")
+            # method returns True if it fails to cluster and prints it's own
+            # message. It's mostly fine to skip such games.
+            print() # just adding some spacing to console
             continue
         analyzer.analyze_clusters()
 
-
-        # if analyzer.find_clusters(vocab=vocab, stop_words=stop_words, \
-        #             time_scale_factor=0.1, print_figs=False, ngram_range=(1,3)):
-        #     # Game didn't have enough comments
-        #     continue
-        #
-        # #analyzer.clusterer.print_clusters()
-        # grouped_docs.append(analyzer.clusterer.get_combined_cluster_docs())
-
-        # k = len(analyzer.clusterer.scored_clusters[0][1])
-        # model = do_LDA(grouped_docs, tf_features=500, lda_components=k, stop_words=stop_words, ngram_range=(1,5
-    # grouped_path = 'grouped_clusters.pkl'
-    # if not os.path.isfile(grouped_path):
-    #     pickle.dump(grouped_docs, open(grouped_path, 'wb'))
-
-    #pickle.dump(model, open('lda_model.pkl', 'wb'))
 
     # Leave here to remember these
     # for top_level_comment in comments:

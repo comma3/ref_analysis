@@ -36,7 +36,7 @@ def make_team_nickname_dict(filename):
         entries.sort(key=lambda x: len(x[0]), reverse=True) # sort by the length of the key
         for entry in entries:
             dictionaryoutput[entry[0]] = set(filter(bool, entry[1:])) # Convet list of base_teams to set
-        print(dictionaryoutput)
+        #print(dictionaryoutput)
     return dictionaryoutput
 
 
