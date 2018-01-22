@@ -13,7 +13,7 @@ import praw
 from library import *
 from CommentClusterer import CommentClusterer
 from ClusterAnalyzer import ClusterAnalyzer
-from lda import do_LDA
+
 
 class GameAnalyzer(object):
     """
@@ -124,6 +124,14 @@ class GameAnalyzer(object):
         #print(self.ref_labels.shape)
         #print(self.ref_tfvectors.shape)
         #print(self.ref_times.shape)
+
+    def find_isolated(self):
+        """
+        Find comments that are far away and unlikely to get their own cluster.
+
+        Should be useful for finding whiners. Might improve clustering to remove them.
+        """
+        pass
 
     def find_clusters(self, **clusterer_params):
         """

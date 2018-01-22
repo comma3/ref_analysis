@@ -126,11 +126,11 @@ Categories
 S - for sorry. indicates commenter pulls for other team.
 SH - sorry to the home team - explicitly labeled (e.g., sorry cougs, you got screwed)
 SA - sorry to the away team - explicitly labeled
-G - for got away with one
+G - got away with one
 GH - home got lucky
 GA - away got lucky
 E - for excuse, make up call, etc.
-D - for dumb, admits its a correct call
+D - disagree
 C - admits its a correct call
 M - for miss
 R - for reviewed - may help remove complaints about bad calls that were overturned
@@ -171,18 +171,24 @@ RR - call reversed
 24 - Fumble
 25 - Not fumble
 
+26 - Block in the back
 
-13 - Chop Block
+27 - Roughing the passer
+28 - Roughing/running into the kicker
+29 - Roughing the snapper
 
-16 - Hands to the face
+30 - Chop Block
+
+31 - Hands to the face
+
+
+
 18 - Clipping
 19 - Illegal motion/shift
 20 - Illegal substitution/too many men
 
 
-26 - Roughing the passer
-27 - Roughing/running into the kicker
-28 - Roughing the snapper
+
 29 - Tripping
 30 - Sideline infraction
 31 - Horse Collar

@@ -4,6 +4,7 @@
 *.odt
 *.doc
 *.docx
+*.png
 
 # Writeup
 writeup/

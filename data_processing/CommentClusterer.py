@@ -16,9 +16,6 @@ from matplotlib import pyplot as plt
 
 from LemmaTokenizer import LemmaTokenizer
 from library import *
-from lda import do_LDA, do_NMF
-
-
 
 
 class CommentClusterer(object):

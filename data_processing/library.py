@@ -13,11 +13,26 @@ from LemmaTokenizer import LemmaTokenizer
 
 def make_team_nickname_dict(filename):
     """
-    Loads team nickname dict from disk.
+    Loads team nickname dict from disk and preprosses the text.
+
+    INPUT:
+    ---------------
+    filename: str - path to the team_nickname_dict
+
+    OUTPUT:
+    ---------------
+    team_nickname_dict: ordered dictionary - dictionary of unique nicknames to
+            the unique base team name (i.e., the flair tag). the base teams is a
+            set that may include multiple teams. Correct team can be found by
+            match home/away team. Ordered by nickname length so longer matches
+            are found first when looped.
+
     """
     dictionaryoutput = OrderedDict()
     with open(filename) as file:
-        entries = list(filter(bool, list(csv.reader(file)))) #iterator but we need to sort and get rid of empty strings
+        # ensure no empty strings and that the text is lowered and stripped
+        entries = [[x.strip().lower() for x in row] \
+                        for row in filter(bool, list(csv.reader(file)))]
         entries.sort(key=lambda x: len(x[0]), reverse=True) # sort by the length of the key
         for entry in entries:
             dictionaryoutput[entry[0]] = set(filter(bool, entry[1:])) # Convet list of base_teams to set
@@ -34,14 +49,22 @@ def sub_home_away(doc, home, away, team_nickname_dict):
     during fitting (original training text can be found from the comment id
     field in the db).
     """
-    # Should probably just get run once per game
-    standard_home = team_nickname_dict[home]
-    if len(standard_home) > 1:
-        raise ValueError("Home team name not unique. Received {} and gave {}.".format(home, standard_home))
 
-    standard_away = team_nickname_dict[away]
+    try:
+        standard_home = team_nickname_dict[home]
+    except KeyError:
+        raise KeyError("Home team not in dictionary {}. Opponent {}".format(home, away))
+
+    if len(standard_home) > 1:
+        raise ValueError("Home team name not unique. Received {} and gave {} with the away team {}.".format(home, standard_home, away))
+
+    try:
+        standard_away = team_nickname_dict[away]
+    except KeyError:
+        raise KeyError("Away team not in dictionary {}. Opponent {}".format(away, home))
+
     if len(standard_away) > 1:
-        raise ValueError("Home team name not unique. Received {} and gave {}.".format(away, standard_away))
+        raise ValueError("Home team name not unique. Received {} and gave {} with the home team {}.".format(away, standard_away, home))
 
     doc = doc.lower()
     # base_team is the standardized unique team name determined from the flair.
@@ -49,10 +72,11 @@ def sub_home_away(doc, home, away, team_nickname_dict):
     # we want to replace the longest string possible first
     for team_nick, base_team_set in team_nickname_dict.items():
         if ' {} '.format(team_nick) in doc or ' {}.'.format(team_nick) in doc or \
-        ' {} '.format(team_nick) in doc or ' {}!'.format(team_nick) in doc or \
+        ' {}?'.format(team_nick) in doc or ' {}!'.format(team_nick) in doc or \
         ' {},'.format(team_nick) in doc or ' {}:'.format(team_nick) in doc or \
         ' {};'.format(team_nick) in doc or ' {}-'.format(team_nick) in doc or \
-        " {}'".format(team_nick) in doc or ' {}"'.format(team_nick) in doc or
+        " {}'".format(team_nick) in doc or ' {}"'.format(team_nick) in doc or \
+        " {})".format(team_nick) in doc or '({} '.format(team_nick) in doc or \
         doc.endswith(' {}'.format(team_nick)) or doc.startswith('{} '.format(team_nick)): # Check whether the team is mentioned in the document
             for base_team in base_team_set:
                 # If the nickname is appropriate for the home team (i.e., don't replace blindly)
@@ -218,4 +242,5 @@ def get_MultiTargetModel(pickle_path='model.pkl', db='/data/cfb_game_db.sqlite3'
 
 
 if __name__ == '__main__':
-    make_team_nickname_dict('team_list.csv')
+    pass
+    #make_team_nickname_dict('team_list.csv')
