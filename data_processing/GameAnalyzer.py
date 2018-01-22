@@ -25,7 +25,7 @@ class GameAnalyzer(object):
         self.model = model # MultiTargetModel
         self.game_id = game_id
         self.game_thread = game_thread
-        self.home = home.lower()
+        self.home = Shome.lower()
         self.away = away.lower()
         self.winner = winner.lower()
 

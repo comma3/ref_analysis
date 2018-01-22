@@ -27,33 +27,41 @@ class ClusterAnalyzer(object):
         losing side.
     """
 
-    def __init__(self, cluster, home, away, class_labels):
+    def __init__(self, cluster, home, away, tags, nickname_dict_path='team_list.csv'):
+
+        self.team_nickname_dict = make_team_nickname_dict(nickname_dict_path)
 
         self.cluster = cluster
         self.home = home
         self.away = away
-        self.class_labels = class_labels
 
         self.user_dist = defaultdict(int) # d[team] : # unique poseters
         self.home_scores = []
         self.away_scores = []
         self.unaffiliated_scores = []
+        self._collect_votes
+
+        self.tag_labels = tags
+        self.tag_counts = self._get_class_array()
 
         self.team_affected = None
         self.rule = None
 
-        self._collect_votes()
 
-        # for comment in self.comments:
-        #     if comment.author_flair_text:
-        #         for f in comment.author_flair_text.split('/'):
-        #             self.user_dist[f] += 1
-
+    def _get_class_array(self):
+        """
+        Finds the size of possible tag array.
+        """
+        if self.home_scores:
+            return np.zeros(self.home_scores[0][0].shape)
+        elif self.away_scores:
+            return np.zeros(self.away_scores[0][0].shape)
+        return np.zeros(self.unaffiliated_scores[0][0].shape)
 
     def _collect_votes(self):
         """
         """
-        #print(self.cluster)
+
         for tf, comment, labels in self.cluster:
             if comment.author_flair_text:
                 if self.home.lower() in comment.author_flair_text.lower():
@@ -69,20 +77,14 @@ class ClusterAnalyzer(object):
                 self.unaffiliated_scores.append((labels, comment.score,\
                                             self._mention_team(comment)))
 
-    def _check_flair(self, team, flair):
+    def _check_flair(self, comment):
         """
         Checks a variety of nicknames for match. For example, lsu is given
         by flair, but home team is given by Lousiana State.
-
         """
-        if self.home.lower() in comment.author_flair_text.lower():
+        if self.team_nickname_dict[self.home] in comment.author_flair_text.lower():
             return True
-        for base_team in self.team_nickname_dict[team]:
-            if base_team in flair or base_team in team:
-                return True
-        for base_team in self.team_nickname_dict[team]:
-            if team in base_team or base_team in team:
-                return True
+
 
 
     def predict(self):
@@ -98,56 +100,72 @@ class ClusterAnalyzer(object):
                             'away' : 0
                             }
 
-        # print(len(self.home_scores))
-        # print(len(self.away_scores))
-        # print(len(self.unaffiliated_scores))
-        if self.home_scores:
-            class_totals = np.zeros(self.home_scores[0][0].shape)
-        elif self.away_scores:
-            class_totals = np.zeros(self.away_scores[0][0].shape)
-        else:
-            class_totals = np.zeros(self.unaffiliated_scores[0][0].shape)
+        # Make a loop so we can easily keep the algorithm the same for both
+        for score_list, same, opposite in [(self.home_scores, 'home', 'away'), \
+                                            (self.away_scores, 'away', 'home')]
+            if score_list:
+                for comment_tags, score, mentioned in score_list:
+                    self.tag_counts += comment_tags
+                    if comment_classes[np.where(self.class_labels == 'D')]:
+                        # We are going to skip these for now. Will apply their effects
+                        # when we have a better idea of which team got the penalty
+                        continue
+                    if comment_classes[np.where(self.class_labels == 'S')]:
+                        bad_call[opposite] += 1
+                        bad_call_scores[opposite] += score
+                    elif comment_classes[np.where(self.class_labels == 'E')]:
+                        bad_call[opposite] += 1
+                        bad_call_scores[opposite] -= score
+                    else: # Just assume they are complaining
+                        bad_call[same] += 1
+                        bad_call_scores[same] += score
 
-        # for key, score_list in [('home', self.home_scores), ('away', self.away_scores), ('', self.unaffiliated_scores)]
-        if self.home_scores:
-            for comment_classes, score, mentioned in self.home_scores:
-                class_totals += comment_classes
-                if comment_classes[np.where(self.class_labels == 'D')]:
-                    # We are going to skip these for now. Will apply their effects
-                    # when we have a better idea of which team got the penalty
-                    continue
+        if self.unaffiliated_scores:
+            for comment_tags, score, mentioned in self.unaffiliated_fans:
+                self.tag_counts += comment_tags
                 if comment_classes[np.where(self.class_labels == 'S')]:
-                    bad_call['away'] += 1
-                    bad_call_scores['away'] += score
-                elif comment_classes[np.where(self.class_labels == 'E')]:
-                    bad_call['away'] += 1
-                    bad_call_scores['away'] -= score
-                else:
-                    bad_call['home'] += 1
-                    bad_call_scores['home'] += score
 
-        print(self.class_labels[np.argsort(class_totals)])
+
+        self._set_rule()
+
+
+
+    def _set_rule(self):
+        """
+        After the class labels are counted, we can predict what rule the cluster
+        is talking about.
+        """
+        found = False
+        missed = False
+        for code in self.tag_labels[np.argsort(self.tag_counts)][::-1]:
+            if found: # Check if missed is the next most frequent ruel
+                if code == 'M':
+                    missed = True
+                break
+            if code in '1,2,SHSAGHGAEDCMRCRR': # 1 and 2 are separated by commas to avoid matching 12
+                continue
+            elif code == 'M':
+                missed = True
+            else:
+                rule = code
+                found = True
+
+        if missed:
+            self.rule = 'Missed ' + rule
+        else:
+            self.rule = rule
 
 
     def _mention_team(self, comment):
         """
         """
         teams = set()
-        we = set()
-        for word in comment.body.lower():
-            if word in self.home:
-                teams.add(self.home)
-            if word in self.away:
-                teams.add(self.away)
-            elif word == 'we' or word == 'us':
-                if self.home in comment.author_flair_text.lower():
-                    we.add(self.home)
-                elif self.away in comment.author_flair_text.lower():
-                    we.add(self.away)
-            # elif word in self.nicknames_dict[self.home]:
-            #     teams.add(self.home)
-            # elif word in self.nicknames_dict[self.away]:
-            #     teams.add(self.away)
+        for nick, full_teams in self.nicknames_dict.items():
+            if nick in comment.body:
+                if self.home in full_teams:
+                    teams.add('home')
+                if self.away in full_teams:
+                    teams.add('away')
         return None
 
     # Leave here to remember these
