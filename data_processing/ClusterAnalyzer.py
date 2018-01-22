@@ -29,9 +29,9 @@ class ClusterAnalyzer(object):
         losing side.
     """
 
-    def __init__(self, cluster, home, away, tags, nickname_dict_path='team_list.csv'):
+    def __init__(self, cluster, home, away, tags, team_nickname_dict):
 
-        self.nicknames_dict = make_team_nickname_dict(nickname_dict_path)
+        self.nicknames_dict = team_nickname_dict
 
         self.cluster = cluster
         self.home = home
@@ -68,10 +68,11 @@ class ClusterAnalyzer(object):
 
         for tf, comment, labels in self.cluster:
             if comment.author_flair_text:
-                if self.home.lower() in comment.author_flair_text.lower():
+                # We might miss some bandwagon fans that have specific flairs
+                if self.home in comment.author_flair_text.lower():
                     self.home_scores.append((labels, comment.score,\
                                             self._mention_team(comment)))
-                elif self.away.lower() in comment.author_flair_text.lower():
+                elif self.away in comment.author_flair_text.lower():
                     self.away_scores.append((labels, comment.score,\
                                             self._mention_team(comment)))
                 else:
@@ -86,7 +87,7 @@ class ClusterAnalyzer(object):
         Checks a variety of nicknames for match. For example, lsu is given
         by flair, but home team is given by Lousiana State.
         """
-        if self.nicknames_dict[self.home] in comment.author_flair_text.lower():
+        if self.home in comment.author_flair_text.lower():
             return True
 
 
@@ -114,7 +115,7 @@ class ClusterAnalyzer(object):
                         # We are going to skip these for now. Will apply their effects
                         # when we have a better idea of which team got the penalty
                         continue
-                    if comment_tags[np.where(self.class_tags == 'S')]:
+                    elif comment_tags[np.where(self.class_tags == 'S')]:
                         bad_call[opposite] += 1
                         bad_call_scores[opposite] += score
                     elif comment_tags[np.where(self.class_tags == 'E')]:
@@ -160,6 +161,12 @@ class ClusterAnalyzer(object):
         print(bad_call)
         print(bad_call_scores)
 
+        if bad_call_scores['home'] == bad_call_scores['away']:
+            pass # Not sure yet
+        elif bad_call_scores['home'] > bad_call_scores['away']:
+            self.team_affected = self.home
+        else:
+            self.team_affected = self.home
 
     def _set_rule(self):
         """
@@ -168,7 +175,7 @@ class ClusterAnalyzer(object):
         """
         found = False
         missed = False
-        print(self.class_tags[np.argsort(self.tag_counts)][::-1])
+        #print(self.class_tags[np.argsort(self.tag_counts)][::-1])
         for code in self.class_tags[np.argsort(self.tag_counts)][::-1]:
             if found: # Check if missed is the next most frequent ruel
                 if code == 'M':
@@ -181,12 +188,10 @@ class ClusterAnalyzer(object):
             else:
                 rule = code
                 found = True
-
         if missed:
             self.rule = 'Missed ' + rule
         else:
             self.rule = rule
-
 
     def _mention_team(self, comment):
         """
@@ -198,7 +203,7 @@ class ClusterAnalyzer(object):
                     teams.append('home')
                 if self.away in full_teams:
                     teams.append('away')
-        return None
+        return teams
 
     # Leave here to remember these
     # for top_level_comment in comments:

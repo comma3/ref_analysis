@@ -22,12 +22,17 @@ class GameAnalyzer(object):
 
     def __init__(self, model, game_id, game_thread, home, away, winner):
 
+        self.team_nickname_dict = make_team_nickname_dict()
+
         self.model = model # MultiTargetModel
+
         self.game_id = game_id
         self.game_thread = game_thread
-        self.home = home.lower()
-        self.away = away.lower()
-        self.winner = winner.lower()
+
+        self.home = home
+        self.away = away
+        self.winner = winner
+        self._standardize_team_names()
 
         self.ref_mask = []
 
@@ -35,15 +40,47 @@ class GameAnalyzer(object):
         self.away_fans = defaultdict(list)
         self.unaffiliated_fans = defaultdict(list)
 
-        self.against_home = 0
-        self.against_away = 0
-
         self.clusterer = None # Actual clusters are in clusterer.scored_clusters
 
         self.comments = None
         self._load_data() # loads comments
         #self._get_user_scores_by_affiliation()
         self._get_flair_set() # Maybe combine these two.
+
+    def _standardize_team_names(self):
+        """
+        Set team names to unique names from dictionary.
+        Raise exception if name is not unqiue.
+        """
+        try:
+            standard_home = self.team_nickname_dict[self.home.strip().lower()]
+        except KeyError:
+            raise KeyError("Home team not in dictionary {}. Opponent {}".format(self.home, self.away))
+
+        try:
+            standard_away = self.team_nickname_dict[self.away.strip().lower()]
+        except KeyError:
+            raise KeyError("Away team not in dictionary {}. Opponent {}".format(self.away, self.home))
+
+        if len(standard_home) > 1:
+            raise ValueError("Home team name not unique. Received {} and gave {} with the away team {}.".format(self.home, standard_home, self.away))
+
+        if len(standard_away) > 1:
+            raise ValueError("Away team name not unique. Received {} and gave {} with the home team {}.".format(self.away, standard_away, self.home))
+
+        self.home = standard_home.pop() # Should only be one thing
+        self.away = standard_away.pop
+
+        if self.winner: # Can be none if we didn't find a postgame thread.
+            try:
+                standard_winner = self.team_nickname_dict[self.winner.strip().lower()]
+            except KeyError:
+                raise KeyError("Winner not in dictionary {}. Opponent {}".format(self.winner))
+
+            if len(standard_winner) > 1:
+                raise ValueError("Winner team name not unique. Received {} for winner with {} for away and {} for home.".format(self.winner, self.away, self.home))
+            self.winner = standard_winner.pop()
+
 
     def _get_flair_set(self):
         """
@@ -100,12 +137,10 @@ class GameAnalyzer(object):
         Clean and vectorize
         """
         # Clean a single text string
-        if isinstance(comment_text,str):
-            replaced_teams = sub_home_away(comment_text, self.home, self.away)
-            return self.model.vectorizer.transform([comment_text])
+        if isinstance(comment_text, str):
+            return self.model.vectorizer.transform([sub_home_away(comment_text, self.home, self.away, self.team_nickname_dict)])
         else: # Clean whole list of comments
-            #replaced_teams = sub_home_away(self.comments, self.home, self.away)
-            comments = np.array([comment.body for comment in self.comments])
+            comments = np.array([sub_home_away(comment.body, self.home, self.away, self.team_nickname_dict) for comment in self.comments])
             return self.model.vectorizer.transform(comments)
 
     def classify_comments(self):
@@ -145,7 +180,7 @@ class GameAnalyzer(object):
         #print(self.clusterer.scored_clusters[0][1])
         sil_score, clusters, k = self.clusterer.scored_clusters[0]
         for cluster in clusters.values(): # dict of center: [assoc. pts]
-            call = ClusterAnalyzer(cluster, self.home, self.away, self.model.target_classes)
+            call = ClusterAnalyzer(cluster, self.home, self.away, self.model.target_classes, self.team_nickname_dict)
             call.predict()
 
 
@@ -182,6 +217,7 @@ if __name__ == '__main__':
             print() # just adding some spacing to console
             continue
         analyzer.analyze_clusters()
+
 
 
     # Leave here to remember these

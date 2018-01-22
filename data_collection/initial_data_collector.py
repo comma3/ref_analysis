@@ -109,7 +109,6 @@ def generate_dates(season_start, season_end, year, interval=86400):
     else:
         season_end += '/' + str(year)
 
-
     epoch = datetime.utcfromtimestamp(0)
     # Naive datetime (local machine time) setting "day" start to 4am EST
     # Stack overflow said this was the best method to convert to utc...

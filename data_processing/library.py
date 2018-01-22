@@ -50,6 +50,8 @@ def sub_home_away(doc, home, away, team_nickname_dict):
     field in the db).
     """
 
+    # This same error checking is also performed when the GameAnalyzer is initialized.
+    #
     try:
         standard_home = team_nickname_dict[home]
     except KeyError:
@@ -64,7 +66,7 @@ def sub_home_away(doc, home, away, team_nickname_dict):
         raise KeyError("Away team not in dictionary {}. Opponent {}".format(away, home))
 
     if len(standard_away) > 1:
-        raise ValueError("Home team name not unique. Received {} and gave {} with the home team {}.".format(away, standard_away, home))
+        raise ValueError("Away team name not unique. Received {} and gave {} with the home team {}.".format(away, standard_away, home))
 
     doc = doc.lower()
     # base_team is the standardized unique team name determined from the flair.
