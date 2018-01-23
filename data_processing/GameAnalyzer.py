@@ -19,11 +19,13 @@ class GameAnalyzer(object):
 
     def __init__(self, model, game_id, game_thread, home, away, winner,
                     team_nickname_dict_path='team_list.csv', min_comments=500, \
-                    squelch_errors=True, error_log_path='missing_games.txt'):
+                    squelch_errors=True, error_log_path='missing_games.txt', \
+                    print_figs=False):
 
         self.min_comments = min_comments
         self.game_id = game_id
         self.game_thread = game_thread
+        self.print_figs = print_figs
         self.squelch_errors = squelch_errors
         self.error_log_path = error_log_path
         self.no_errors = False
@@ -215,17 +217,19 @@ class GameAnalyzer(object):
         """
         """
         if len(self.comments) > self.min_comments and self.no_errors:
-            # min comments here should be different as this is already filtered
+            # min comments here should be different as this is already filtred
             # comments
-            self.clusterer = CommentClusterer(self.model.target_classes, min_comments=25, **clusterer_params)
-            return self.clusterer.fit(self.ref_tfvectors, self.ref_times, self.ref_labels)
+            self.clusterer = CommentClusterer(self.model.target_classes, \
+                                                            **clusterer_params)
+            return self.clusterer.fit(self.ref_tfvectors, self.ref_times, \
+                                                self.ref_labels)
 
     def analyze_clusters(self):
         """
         """
         if len(self.comments) > self.min_comments and self.no_errors:
             #print(self.clusterer.scored_clusters[0][1])
-            sil_score, clusters, k = self.clusterer.scored_clusters[0]
+            sil_score, clusters, k = self.clusterer.scored_clusters[-1] # take best
             for cluster in clusters.values(): # dict of center: [assoc. pts]
                 call = ClusterAnalyzer(cluster, self.home, self.away, self.model.target_classes, self.team_nickname_dict)
                 call.predict()
@@ -260,7 +264,7 @@ if __name__ == '__main__':
         game_id, game_thread, home, away, winner = game
         analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
         analyzer.classify_comments()
-        if analyzer.find_clusters(time_scale_factor=0.01, print_figs=False):
+        if analyzer.find_clusters(time_scale_factor=1.5, print_figs=False, min_comments=25, max_k=10):
             #print("Game didn't have enough comments")
             # method returns True if it fails to cluster and prints it's own
             # message. It's mostly fine to skip such games.

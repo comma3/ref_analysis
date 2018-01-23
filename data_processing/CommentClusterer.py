@@ -95,7 +95,7 @@ class CommentClusterer(object):
             # Needs to be reculculated for every k because the points get shuffled
             # by kmeans so the distance matrix will change with k.
             distances = [[self.distance(p1[0].todense(), p2[0].todense()) + \
-                        abs(p1[1].created_utc - p2[1].created_utc) * \
+                        abs(p1[1].created_utc - p2[1].created_utc) ** \
                         self.time_scale_factor for p2 in combined_points]
                         for p1 in combined_points]
 
@@ -110,19 +110,38 @@ class CommentClusterer(object):
         """
         """
 
-        # These similarity scores could potentially be determined in an iterative fashion from the data
-        # by finding the class that are most frequently in clusters together.
+        # These similarity scores could potentially be determined from the
+        # data by finding the class that are frequently in clusters together.
 
         time_distance = abs(pt1[1].created_utc - pt2[1].created_utc)
         tag_distance = 0
-        tags1 = self.class_tags[np.where(pt1[2].astype(int)==1)]
-        tags2 = self.class_tags[np.where(pt2[2].astype(int)==1)]
+        tags1 = set(self.class_tags[np.where(pt1[2].astype(int)==1)])
+        tags2 = set(self.class_tags[np.where(pt2[2].astype(int)==1)])
 
+        for tag1 in tags1:
+            if tag1 == 'M':
+                if 'M' in tags2:
+                    tags2.remove('M')
+                else:
+                    tag_distance += 5
+            elif tag1 == '9': # False start
+                if '9' in tags2:
+                    tags2.remove('9')
+                if '10' in tags2: # Offsides
+                    tag_distance += 5
+                    if '10' not in tags1: # Doesn't match backwards
+                        tag_distance += 5
+                        tags2.remove('10')
+                if '11' in tags2:
+                    tag_distance += 5
+                    if '11' not in tags1: # Doesn't match backwards
+                        tag_distance += 5
+                        tags2.remove('11')
 
-        for i, tag1 in enumerate(tags1):
-            if tag2 == 'M' and 'M' not in tags2:
-                tag_distance += 5
-            elif tag2 == ''
+        # Anything left over
+        for left in tags1.symmetric_difference(tags2):
+            if left not in '1,2,3,4':
+                tag_distance += 30
 
 
 
@@ -160,12 +179,12 @@ class CommentClusterer(object):
             for tfs, comment, labels in self.game_vector:
                 if dist_type == 'old':
                     distances = [(self.distance(tfs.todense(), center[0].todense())\
-                            + abs(comment.created_utc - center[1]) * \
+                            + abs(comment.created_utc - center[1]) ** \
                             self.time_scale_factor) for center in centers]
                 else:
                     # Always euclidean for time. TF distance defined in object
                     distances = [(self.distance(tfs.todense(), center[0].todense())\
-                            + abs(comment.created_utc - center[1]) * \
+                            + abs(comment.created_utc - center[1]) ** \
                             self.time_scale_factor) for center in centers]
                 # Determine which center is closest
                 center = centers[np.argmin(distances)]
@@ -188,7 +207,7 @@ class CommentClusterer(object):
             for center, new_center in zip(centers, new_centers):
                 dist += self.distance(new_center[0].todense(), \
                         center[0].todense()) + abs(new_center[1] - \
-                        center[1]) * self.time_scale_factor
+                        center[1]) ** self.time_scale_factor
             centers = new_centers
             if True: #self.verbose:
                 print('Iteration:', i)
@@ -230,6 +249,7 @@ class CommentClusterer(object):
         self.scored_clusters.sort(reverse=True)
         if self.verbose:
             print('Best Silhouette Score: {:.3f}'.format(self.scored_clusters[-1][0]))
+            print('K: {}'.format(len(self.scored_clusters[-1][1])))
 
     def print_silhouette_plot(self):
         """
@@ -320,7 +340,7 @@ if __name__ == '__main__':
     #print(stop_words)
     documents = load_data(pickle_path=pickle_path, n_games=None, overwrite=True)
     #print(len(documents))
-    clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, time_scale_factor=0.1, print_figs=True, ngram_range=(1,3))
+    clusterer = CommentClusterer(vocab=vocab, stop_words=stop_words, time_scale_factor=1.0, print_figs=True, ngram_range=(1,3))
     clusterer.fit(documents)
 
     grouped_docs = clusterer.get_cluster_docs()
