@@ -22,13 +22,15 @@ class CommentClusterer(object):
     """
     """
 
-    def __init__(self, vocab=None, distance=cosine, \
-                max_iter=100, time_scale_factor=0.00005, threshold=0.1, \
+    def __init__(self, class_tags, vocab=None, distance=cosine, \
+                max_iter=100, time_scale_factor=1.05, threshold=0.1, \
                 verbose=True, print_figs=False, max_k=3, min_comments=100,
                 cluster_method='hierarchical'):
 
         if min_comments < max_k:
             raise ValueError('Minimum comments must be greater than maximum k!')
+
+        self.class_tags = class_tags
 
         self.print_figs = print_figs
         self.verbose = verbose
@@ -63,12 +65,14 @@ class CommentClusterer(object):
         """
         return pickle.loads(hashable)
 
-    def _convert_labels_to_dict(self, comments, labels):
+    def _convert_cluster_to_dict(self, comments, cluster_number):
         """
+        Takes lists of clusters and their labels and converts them
+        to a dictionary of cluster_number: [points].
         """
         out = defaultdict(list)
-        for comment, label in zip(comments, labels):
-            out[label].append(comment)
+        for comment, cluster_number in zip(comments, cluster_number):
+            out[cluster_number].append(comment)
         return out
 
 
@@ -97,6 +101,8 @@ class CommentClusterer(object):
 
         elif self.cluster_method == 'hierarchical':
             labels = clusters.labels_
+        else:
+            raise ValueError('Unknown clustering method!')
 
         return silhouette_score(distances, labels, metric="precomputed")
 
@@ -108,16 +114,19 @@ class CommentClusterer(object):
         # by finding the class that are most frequently in clusters together.
 
         time_distance = abs(pt1[1].created_utc - pt2[1].created_utc)
+        tag_distance = 0
+        tags1 = self.class_tags[np.where(pt1[2].astype(int)==1)]
+        tags2 = self.class_tags[np.where(pt2[2].astype(int)==1)]
 
-        label_distance = 0
 
-        for i, lab1 in enumerate(pt1[2]):
-            for j, lab2 in enumerate(pt2[2]):
-                if i == j:
-                    if not lab1 == lab2:
-                        label_distance += 1
+        for i, tag1 in enumerate(tags1):
+            if tag2 == 'M' and 'M' not in tags2:
+                tag_distance += 5
+            elif tag2 == ''
 
-        return (time_distance * self.time_scale_factor) + label_distance
+
+
+        return (time_distance ** self.time_scale_factor) + tag_distance
 
 
     def _hierachical_clustering(self, k, distance_matrix):
@@ -211,8 +220,9 @@ class CommentClusterer(object):
             elif self.cluster_method == 'hierarchical':
                 clusters = self._hierachical_clustering(i, distances)
                 sil_score = self._get_silhouette_score(clusters, distances)
-                self.plot_dendrogram(clusters)
-                self.scored_clusters.append((sil_score, self._convert_labels_to_dict(self.game_vector, clusters.labels_), i))
+                if self.print_figs:
+                    self.plot_dendrogram(clusters)
+                self.scored_clusters.append((sil_score, self._convert_cluster_to_dict(self.game_vector, clusters.labels_), i))
             # Add the silhouette score and clustering to a list
         #print(len(self.scored_clusters))
         # Find the k with the lowest silhouette_score and add the clusters

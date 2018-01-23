@@ -15,7 +15,6 @@ from LemmaTokenizer import LemmaTokenizer
 class MultiTargetModel():
     """
     """
-
     def __init__(self, model, n_jobs=1, vectorizer=CountVectorizer, stop_words='english', tokenizer=LemmaTokenizer):
         self.model = model
         self.n_jobs = n_jobs
