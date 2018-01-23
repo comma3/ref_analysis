@@ -21,7 +21,7 @@ Example of an excuse from a team that had the advantage
 
 Example of a bailed out comment.
 
-![Excuse](/writeup/excuse2_ore.png)
+![Excuse](/writeup/bailed.png)
 
 
 Data are modified by substituting "hometeamtrack" and "awayteamtrack" (sufficiently unlikely terms to occur naturally) for names and nicknames of various teams, allowing the model to identify these 'Sorry', 'Excuse', and 'Bailed' cases without consideration of the team name.

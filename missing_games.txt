@@ -70,3 +70,6 @@ Away team not in dictionary acc cg. Opponent gt.
 Away team not in dictionary b. Opponent ohio state.
 Away team not in dictionary pac-. Opponent oregon.
 Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team notre dame.
+Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team ucla.
+Home team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the away team florida state.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team california.
