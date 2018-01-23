@@ -56,3 +56,17 @@ Home team name not unique. Received usc and gave {'usc trojans', 'south carolina
 Away team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the home team colorado.
 Away team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the home team oregon.
 Home team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the away team ucla.
+Away team not in dictionary acc championship game. Opponent clemson.
+Away team not in dictionary pac-. Opponent stanford.
+Away team not in dictionary sec championship game. Opponent alabama.
+Away team not in dictionary american athletic championship game - temple. Opponent houston.
+Away team not in dictionary independence bowl. Opponent miami.
+Away team not in dictionary new era pinstripe bowl. Opponent boston college eagles.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team nebraska.
+Away team not in dictionary quick lane bowl rutgers scarlet knights. Opponent unc tar heels.
+Away team not in dictionary miami beach bowl. byu cougars. Opponent memphis tigers.
+Away team not in dictionary sec cg. Opponent missouri.
+Away team not in dictionary acc cg. Opponent gt.
+Away team not in dictionary b. Opponent ohio state.
+Away team not in dictionary pac-. Opponent oregon.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team notre dame.

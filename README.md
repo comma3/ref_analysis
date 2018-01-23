@@ -11,21 +11,35 @@ As an aside, I think officials and their review processes are very good. I do no
 ***
 ## Data
 
+Example of a sorry from the team that had the advantage
+
+![Sorry](/writeup/sorry2_ore.png)
+
+Example of an excuse from a team that had the advantage
+
+![Excuse](/writeup/excuse2_ore.png)
+
+Example of a bailed out comment.
+
+![Excuse](/writeup/excuse2_ore.png)
 
 
-![Sorry](../ref_analysis/writeup/sorry2_ore.png?raw=true)
-
-![Sample image](writeup/sample.png?raw=true)
-
-
+Data are modified by substituting "hometeamtrack" and "awayteamtrack" (sufficiently unlikely terms to occur naturally) for names and nicknames of various teams, allowing the model to identify these 'Sorry', 'Excuse', and 'Bailed' cases without consideration of the team name.
 
 ## Methods
 
+Training data are hand labeled with ~30 potential classes (5 special and 25 for different rules). A One vs Rest approach is taken where one Naive Bayes model is trained for each class and the appropriate tags are added to each call.
 
-
+The precision and
 
  Metric      | Score
  ---         | ---
  Precision   | 0.833         
  Recall      | 0.974         
  Accuracy    | 0.941
+
+Comments are then clustered based on the time of the
+
+ ## Results
+
+ ![Sample image](/writeup/sample.png)

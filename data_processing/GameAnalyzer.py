@@ -23,6 +23,10 @@ class GameAnalyzer(object):
                     print_figs=False):
 
         self.game_thread = game_thread
+
+        with open('analyzed.txt', 'a') as ana:
+            ana.write(self.game_thread + "\n")
+
         self.game_id = game_id
 
         self.min_comments = min_comments
@@ -379,6 +383,8 @@ if __name__ == '__main__':
     #print(stop_words)
 
     game_list = collect_game_threads()
+    with open('analyzed.txt', 'r') as ana:
+        short = set(ana.read().splitlines())
     num_games= len(game_list)
     print('Number of games in DB: {}'.format(num_games))
     model = get_MultiTargetModel(overwrite=False, alpha=0, fit_prior=True)
@@ -391,6 +397,8 @@ if __name__ == '__main__':
     for n, game in enumerate(game_list):
         print('{:.1f}% Complete'.format(n/num_games))
         game_id, game_thread, home, away, winner = game
+        if game_thread in short: # Need a better solution for games that we skipped
+            continue
         analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
         analyzer.classify_comments()
         if analyzer.find_clusters(time_scale_factor=1.5, print_figs=False,\
