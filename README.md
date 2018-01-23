@@ -10,3 +10,10 @@ As an aside, I think officials and their review processes are very good. I do no
 
 
 ## Methods
+
+
+macro precision
+Average Recall: 0.9740415843266592
+Average Precision: 0.832388171060387
+Accuracy:
+0.941087039149

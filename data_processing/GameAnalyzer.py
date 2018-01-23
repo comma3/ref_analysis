@@ -22,22 +22,40 @@ class GameAnalyzer(object):
                     squelch_errors=True, error_log_path='missing_games.txt', \
                     print_figs=False):
 
-        self.min_comments = min_comments
-        self.game_id = game_id
         self.game_thread = game_thread
+        self.game_id = game_id
+
+        self.min_comments = min_comments
         self.print_figs = print_figs
         self.squelch_errors = squelch_errors
         self.error_log_path = error_log_path
         self.no_errors = False
 
+        self.argumentative = {
+                        'home' : 0,
+                        'away' : 0
+                        }
+        self.positive = {
+                    'home' : 0,
+                    'away' : 0
+                    }
+
+        self.whiny = {
+                    'home' : 0,
+                    'away' : 0
+                    }
+
         self.comments = None
         self._load_data() # loads comments
+
+        self.call_list = []
+        self.distinct_users = set()
 
         # High likelihood team's not in dict. Can't realluy trust data either
         # Don't have time for this so we just skip everything.
         if len(self.comments) > self.min_comments:
             self.team_nickname_dict = \
-                                make_team_nickname_dict(team_nickname_dict_path)
+                        make_team_nickname_dict(team_nickname_dict_path)
 
             self.model = model # MultiTargetModel
 
@@ -52,8 +70,6 @@ class GameAnalyzer(object):
             self.away_fans = defaultdict(list)
             self.unaffiliated_fans = defaultdict(list)
 
-            self.call_list = []
-
             # Actual clusters are in clusterer.scored_clusters
             self.clusterer = None
 
@@ -61,7 +77,7 @@ class GameAnalyzer(object):
             self._get_flair_set() # Maybe combine these two.
         else:
             print('Too few comments for accurate analysis: {}'.format(
-                                                            len(self.comments)))
+                                                        len(self.comments)))
 
     def _standardize_team_names(self):
         """
@@ -144,6 +160,7 @@ class GameAnalyzer(object):
             flairs = set()
 
         for comment in self.comments:
+            self.distinct_users.add(str(comment.author).lower())
             if comment.author_flair_text:
                 fs = comment.author_flair_text.split('/')
             else: # No flair
@@ -241,11 +258,116 @@ class GameAnalyzer(object):
             for cluster in clusters.values(): # dict of center: [assoc. pts]
                 call = ClusterAnalyzer(cluster, self.home, self.away, self.model.target_classes, self.team_nickname_dict)
                 self.call_list.append(call.predict())
+                for k,v in call.whiny.items():
+                    self.whiny[k] += v
+                for k,v in call.positive.items():
+                    self.positive[k] += v
+                for k,v in call.argumentative.items():
+                    self.argumentative[k] += v
 
-    def add_to_db(self):
+    def add_to_db(self, db='/data/cfb_game_db.sqlite3'):
         """
         """
-        pass
+        if len(self.comments) < self.min_comments or not self.no_errors:
+            return
+
+        insert_list = []
+        for call in self.call_list:
+            if call:
+                insert_list.append((self.game_thread, call[0], call[1], call[2]))
+
+        conn = sqlite3.connect(db)
+        curr = conn.cursor()
+        # Just gonna try to create the table here
+        # Pass if the table already exists
+        try:
+            curr.execute("""CREATE TABLE
+                            calls
+                            (
+                            game_thread string,
+                            team_affected string,
+                            call string,
+                            call_differential int
+                            );
+                            """)
+            conn.commit()
+        except sqlite3.OperationalError:
+            # Totally fine that table already exists
+            pass
+
+        curr.executemany("""INSERT INTO
+                        calls
+                        (
+                        game_thread,
+                        team_affected,
+                        call,
+                        call_differential
+                        )
+                        VALUES
+                        (?,?,?,?);
+                        """, insert_list)
+        conn.commit()
+
+
+        try:
+            curr.execute("""CREATE TABLE
+                            fanbase
+                            (
+                            team string,
+                            whiny int,
+                            argumentative int,
+                            positive int
+                            );
+                            """)
+            conn.commit()
+        except sqlite3.OperationalError:
+            # Totally fine that table already exists
+            pass
+
+        for team in ['home', 'away']:
+            if team == 'home':
+                name = self.home
+            else:
+                name = self.away
+
+            curr.execute("""SELECT
+                             *
+                            FROM fanbase
+                            WHERE team = '{}';
+                            """.format(name))
+
+            exists = curr.fetchall()
+            print(exists)
+            if exists:
+                curr.execute("""
+                            UPDATE
+                            fanbase
+                            SET
+                            whiny = whiny + {},
+                            argumentative = argumentative + {},
+                            positive = positive + {}
+                            WHERE
+                            team = '{}';
+                            """.format(self.whiny[team], \
+                            self.argumentative[team],\
+                            self.positive[team], name))
+            else:
+                curr.execute("""
+                               INSERT INTO
+                               fanbase
+                               (
+                               whiny,
+                               argumentative,
+                               positive,
+                               team
+                               )
+                               VALUES
+                               (?,?,?,?);
+                            """, (self.whiny[team], self.argumentative[team],\
+                                                self.positive[team], name))
+
+        conn.commit()
+        conn.close()
 
 
 if __name__ == '__main__':
@@ -272,12 +394,14 @@ if __name__ == '__main__':
         game_id, game_thread, home, away, winner = game
         analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
         analyzer.classify_comments()
-        if analyzer.find_clusters(time_scale_factor=1.5, print_figs=True, min_comments=25, max_k=10):
-            #print("Game didn't have enough comments")
+        if analyzer.find_clusters(time_scale_factor=1.5, print_figs=False,\
+                                                min_comments=50, max_k=10)\
+                                 or not analyzer.no_errors:
             # method returns True if it fails to cluster and prints it's own
             # message. It's mostly fine to skip such games.
             continue
         analyzer.analyze_clusters()
+        analyzer.add_to_db()
         print() # just adding some spacing to console
 
 

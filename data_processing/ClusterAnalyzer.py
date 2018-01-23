@@ -41,6 +41,20 @@ class ClusterAnalyzer(object):
         self.home_scores = []
         self.away_scores = []
         self.unaffiliated_scores = []
+
+        self.argumentative = {
+                        'home' : 0,
+                        'away' : 0
+                        }
+        self.positive = {
+                    'home' : 0,
+                    'away' : 0
+                    }
+
+        self.whiny = {
+                    'home' : 0,
+                    'away' : 0
+                    }
         self._collect_votes()
 
         self.class_tags = tags
@@ -66,13 +80,22 @@ class ClusterAnalyzer(object):
         """
         """
 
+
         for tf, comment, labels in self.cluster:
             if comment.author_flair_text:
                 # We might miss some bandwagon fans that have specific flairs
                 if self.home in comment.author_flair_text.lower():
+                    if comment.score < 1:
+                        self.argumentative['home'] += 1
+                    else:
+                        self.positive['home'] += 1
                     self.home_scores.append((labels, comment.score,\
                                             self._mention_team(comment)))
                 elif self.away in comment.author_flair_text.lower():
+                    if comment.score < 1:
+                        self.argumentative['away'] += 1
+                    else:
+                        self.positive['away'] += 1
                     self.away_scores.append((labels, comment.score,\
                                             self._mention_team(comment)))
                 else:
@@ -89,8 +112,6 @@ class ClusterAnalyzer(object):
         """
         if self.home in comment.author_flair_text.lower():
             return True
-
-
 
     def predict(self):
         """
@@ -155,23 +176,41 @@ class ClusterAnalyzer(object):
                     bad_call['away'] += 1
                     bad_call_scores['away'] += score
 
+                elif comment_tags[np.where(self.class_tags == 'SH')] and \
+                    not comment_tags[np.where(self.class_tags == 'SA')]:
+                    bad_call['home'] += 1
+                    bad_call_scores['home'] += score
+                elif comment_tags[np.where(self.class_tags == 'GA')] and \
+                    not comment_tags[np.where(self.class_tags == 'SA')]:
+                    bad_call['home'] += 1
+                    bad_call_scores['home'] += score
+
         self._set_rule()
         print('Rule: {}'.format(self.rule))
         print('Bad call?')
         print(bad_call)
         print(bad_call_scores)
 
-        if bad_call_scores['home'] == 0 and bad_call_scores['away'] == 0:
-            pass
+        if bad_call['home'] == 0:
+            if bad_call_scores['away'] < 3:
+                self.whiny['away'] += 1
+        if bad_call['away'] == 0:
+            if bad_call_scores['home'] < 3:
+                self.whiny['home'] += 1
+
         if bad_call_scores['home'] == bad_call_scores['away']:
             pass # Not sure yet
+        if bad_call_scores['home'] < 0 and bad_call_scores['away'] < 0:
+            pass
         elif bad_call_scores['home'] > bad_call_scores['away']:
             self.team_affected = 'home'
-        else:
+        elif bad_call_scores['home'] < bad_call_scores['away']:
             self.team_affected = 'away'
 
         if self.team_affected == 'home':
-            return (self.home, self.rule, bad_call_scores['home'])
+            return (self.home, self.rule, bad_call_scores['home'] - bad_call_scores['away'])
+        if self.team_affected == 'away':
+            return (self.away, self.rule, bad_call_scores['away'] - bad_call_scores['home'])
 
     def _set_rule(self):
         """

@@ -161,26 +161,58 @@ def collect_game_threads(db='/data/cfb_game_db.sqlite3', n_games=None, random=Fa
     --------------
     games:      List - list of game ids that praw can directly access.
     """
+
+
+
+
+    conn = sqlite3.connect(db)
+    curr = conn.cursor()
+
+    try:
+        curr.execute("""CREATE TABLE
+                        calls (
+                        game_thread string,
+                        team_affected string,
+                        call string,
+                        call_differential int
+                        );
+                        """)
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Totally fine that table already exists
+        pass
+
+    curr.execute("""
+                SELECT DISTINCT
+                game_thread
+                FROM
+                calls
+                """)
+    analyzed = curr.fetchall()
     if n_games: # if a number of games is specified, select that many
         query = """SELECT
                     game_id, game_thread, home, away, winner
                     FROM
                     games
+                    WHERE
+                    game_thread NOT IN ('{}')
                     LIMIT
                     {}
-                    """.format(n_games)
+                    """.format("', '".join([x[0] for x in analyzed]), n_games)
     else: # select all threads
         query = """SELECT
                     game_id, game_thread, home, away, winner
                     FROM
                     games
-                    """
+                    WHERE
+                    game_thread NOT IN ('{}')
+                    """.format("', '".join([x[0] for x in analyzed]))
+
     if random:
         query = query + "ORDER BY RANDOM()"
-    conn = sqlite3.connect(db)
-    curr = conn.cursor()
     curr.execute(query)
     games = curr.fetchall()
+
     conn.close()
     return games
 

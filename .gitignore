@@ -13,6 +13,7 @@ writeup/
 praw.ini
 
 # Byte-compiled / optimized / DLL files
+_cache/
 __pycache__/
 *.py[cod]
 *$py.class
