@@ -8,12 +8,24 @@ These comments will initially be collected from Reddit, which has a voting syste
 
 As an aside, I think officials and their review processes are very good. I do not believe that there are intrinsic biases against any teams. However, statistically, some teams should benefit from bad calls and other teams should be harmed by bad calls simply because officials are human and make mistakes.
 
+***
+## Data
+
+
+
+![Sorry](../ref_analysis/writeup/sorry2_ore.png?raw=true)
+
+![Sample image](writeup/sample.png?raw=true)
+
+
 
 ## Methods
 
 
-macro precision
-Average Recall: 0.9740415843266592
-Average Precision: 0.832388171060387
-Accuracy:
-0.941087039149
+
+
+ Metric      | Score
+ ---         | ---
+ Precision   | 0.833         
+ Recall      | 0.974         
+ Accuracy    | 0.941

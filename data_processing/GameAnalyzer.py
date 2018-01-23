@@ -337,7 +337,6 @@ class GameAnalyzer(object):
                             """.format(name))
 
             exists = curr.fetchall()
-            print(exists)
             if exists:
                 curr.execute("""
                             UPDATE
