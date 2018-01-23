@@ -73,3 +73,37 @@ Home team name not unique. Received usc and gave {'south carolina gamecocks', 'u
 Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team ucla.
 Home team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the away team florida state.
 Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team california.
+Home team name not unique. Received wake forest and gave {'wake forest demon deacons', 'tennessee volunteers'} with the away team clemson.
+Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team utah.
+Away team name not unique. Received miami and gave {'miami hurricanes', 'miami (oh) redhawks'} with the home team virginia tech.
+Away team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the home team arizona.
+Home team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the away team arizona state.
+Home team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the away team oregon state.
+Away team not in dictionary university of southern california. Opponent boston college.
+Away team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the home team stanford.
+Home team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the away team stanford.
+Home team name not unique. Received miami and gave {'miami hurricanes', 'miami (oh) redhawks'} with the away team nebraska.
+Away team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the home team arizona state.
+Away team name not unique. Received miami and gave {'miami hurricanes', 'miami (oh) redhawks'} with the home team cincinnati.
+Home team name not unique. Received wake forest and gave {'wake forest demon deacons', 'tennessee volunteers'} with the away team florida state.
+Home team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the away team washington.
+Away team name not unique. Received miami and gave {'miami hurricanes', 'miami (oh) redhawks'} with the home team florida state.
+Away team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the home team notre dame.
+Home team name not unique. Received miami and gave {'miami hurricanes', 'miami (oh) redhawks'} with the away team virginia tech.
+Home team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the away team utah.
+Home team name not unique. Received miami and gave {'miami hurricanes', 'miami (oh) redhawks'} with the away team clemson.
+Away team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the home team california.
+Home team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the away team arizona.
+Away team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the home team colorado.
+Away team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the home team oregon.
+Home team name not unique. Received usc and gave {'usc trojans', 'south carolina gamecocks'} with the away team ucla.
+Away team not in dictionary acc championship game. Opponent clemson.
+Away team not in dictionary pac-. Opponent stanford.
+Away team not in dictionary sec championship game. Opponent alabama.
+Away team not in dictionary american athletic championship game - temple. Opponent houston.
+Away team name not unique. Received miami and gave {'miami hurricanes', 'miami (oh) redhawks'} with the home team washington state.
+Away team not in dictionary russell athletic bowl. Opponent baylor.
+Away team not in dictionary holiday bowl. Opponent wisconsin.
+Away team not in dictionary fiesta bowl. Opponent ohio state.
+Away team not in dictionary taxslayer bowl. Opponent georgia.
+Away team not in dictionary ndsu. Opponent montana.
