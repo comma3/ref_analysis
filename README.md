@@ -51,7 +51,7 @@ Hierarchical and kmeans clustering are both available, with the clustering autom
 ![Sample image](/writeup/dendrogram.png)
 
 
-Each cluster is then analyzed individual, and the bad call is determined using various hueristics to predict the correct call. Accuracy is approximated by considering the class imbalance (higher difference between the two classes indicates greater certainly of the result).
+Each cluster is then analyzed individual, and the bad call is determined using various heuristics to predict the correct call (notably the examples mentioned above). Accuracy is approximated by considering the class imbalance (higher difference between the two classes indicates greater certainly of the result).
 
  ## Results
 
@@ -72,12 +72,11 @@ Other interesting statistics arise from these results:
  etc..                    |                       |
 
 
-
  ## Future Directions
 
  #### Cunningham's Law:
  "The best way to get the right answer on the internet is not to ask a question; it's to post the wrong answer."
 
- The r/football community has over 350,000 memebers, many of whom are quite fanatical about college football and their teams. Hand labeling the training data is very, very time consuming. Therefore, I intend to create a webapp and leverage this community to label some of the data for me.
+ The r/football community has over 350,000 members, many of whom are quite fanatical about college football and their teams. Hand labeling the training data is very, very time consuming. Therefore, I intend to create a web app and leverage this community to label some of the data for me.
 
- Additionally, this model will require substantial iteration to improve heuristics involved in labeling data
+ Additionally, this model will require substantial iteration to improve the heuristics involved in labeling data. Manual examination of the clusters is required to determine if the prediction is accurate.s
