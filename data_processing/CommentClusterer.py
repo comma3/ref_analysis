@@ -151,7 +151,7 @@ class CommentClusterer(object):
     def _hierachical_clustering(self, k, distance_matrix):
 
         agger = AgglomerativeClustering(n_clusters=k, affinity='precomputed',\
-                    memory=None, compute_full_tree='auto', linkage='complete') # memory should speed this up?
+                    memory='_cache/', compute_full_tree='auto', linkage='average') # memory should speed this up?
         agger.fit(distance_matrix)
         return agger
 

@@ -161,12 +161,17 @@ class ClusterAnalyzer(object):
         print(bad_call)
         print(bad_call_scores)
 
+        if bad_call_scores['home'] == 0 and bad_call_scores['away'] == 0:
+            pass
         if bad_call_scores['home'] == bad_call_scores['away']:
             pass # Not sure yet
         elif bad_call_scores['home'] > bad_call_scores['away']:
-            self.team_affected = self.home
+            self.team_affected = 'home'
         else:
-            self.team_affected = self.home
+            self.team_affected = 'away'
+
+        if self.team_affected == 'home':
+            return (self.home, self.rule, bad_call_scores['home'])
 
     def _set_rule(self):
         """
@@ -181,7 +186,7 @@ class ClusterAnalyzer(object):
                 if code == 'M':
                     missed = True
                 break
-            if code in '0,1,2,3,4SHSAGHGAEDCMRCRR': # 0-4 are separated by commas to avoid matching, eg, 12
+            if code in '0,1,2,SHSAGHGAEDCMRCRR': # 0-2 are separated by commas to avoid matching, eg, 12
                 continue
             elif code == 'M':
                 missed = True

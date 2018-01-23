@@ -36,7 +36,8 @@ class GameAnalyzer(object):
         # High likelihood team's not in dict. Can't realluy trust data either
         # Don't have time for this so we just skip everything.
         if len(self.comments) > self.min_comments:
-            self.team_nickname_dict = make_team_nickname_dict(team_nickname_dict_path)
+            self.team_nickname_dict = \
+                                make_team_nickname_dict(team_nickname_dict_path)
 
             self.model = model # MultiTargetModel
 
@@ -51,12 +52,16 @@ class GameAnalyzer(object):
             self.away_fans = defaultdict(list)
             self.unaffiliated_fans = defaultdict(list)
 
-            self.clusterer = None # Actual clusters are in clusterer.scored_clusters
+            self.call_list = []
+
+            # Actual clusters are in clusterer.scored_clusters
+            self.clusterer = None
 
             #self._get_user_scores_by_affiliation()
             self._get_flair_set() # Maybe combine these two.
         else:
-            print('Too few comments for accurate analysis: {}'.format(len(self.comments)))
+            print('Too few comments for accurate analysis: {}'.format(
+                                                            len(self.comments)))
 
     def _standardize_team_names(self):
         """
@@ -86,7 +91,9 @@ class GameAnalyzer(object):
         if len(standard_home) > 1:
             if self.squelch_errors:
                 with open(self.error_log_path, 'a') as elog:
-                    elog.write("Home team name not unique. Received {} and gave {} with the away team {}.\n".format(self.home, standard_home, self.away))
+                    elog.write(("Home team name not unique. Received {} and" \
+                    " gave {} with the away team {}.\n".format(self.home, \
+                     standard_home, self.away)))
                 return False
             else:
                 raise ValueError("Home team name not unique. Received {} and gave {} with the away team {}.".format(self.home, standard_home, self.away))
@@ -230,9 +237,10 @@ class GameAnalyzer(object):
         if len(self.comments) > self.min_comments and self.no_errors:
             #print(self.clusterer.scored_clusters[0][1])
             sil_score, clusters, k = self.clusterer.scored_clusters[-1] # take best
+
             for cluster in clusters.values(): # dict of center: [assoc. pts]
                 call = ClusterAnalyzer(cluster, self.home, self.away, self.model.target_classes, self.team_nickname_dict)
-                call.predict()
+                self.call_list.append(call.predict())
 
     def add_to_db(self):
         """
@@ -264,7 +272,7 @@ if __name__ == '__main__':
         game_id, game_thread, home, away, winner = game
         analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
         analyzer.classify_comments()
-        if analyzer.find_clusters(time_scale_factor=1.5, print_figs=False, min_comments=25, max_k=10):
+        if analyzer.find_clusters(time_scale_factor=1.5, print_figs=True, min_comments=25, max_k=10):
             #print("Game didn't have enough comments")
             # method returns True if it fails to cluster and prints it's own
             # message. It's mostly fine to skip such games.
