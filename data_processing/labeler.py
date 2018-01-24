@@ -48,10 +48,10 @@ def get_label(thread, comments, home, away, already_analyzed, team_nickname_dict
         training_data.append((str(comment), thread, comment.author_flair_text, altered_text, comment.created_utc, category))
         if i % 25 == 0:
             # Add periodically
-            add_to_db(training_data)
+            add_to_training_db(training_data)
             training_data = []
     # Also add when the loop is over in case it's not divisible by 25.
-    add_to_db(training_data)
+    add_to_training_db(training_data)
     already_analyzed.add(thread)
 
     return already_analyzed, ''
@@ -79,7 +79,7 @@ def is_cat_valid(string):
                 return False
     return True
 
-def add_to_db(training_data, db = '/data/cfb_game_db.sqlite3'):
+def add_to_training_db(training_data, db = '/data/cfb_game_db.sqlite3'):
     """
     """
     conn = sqlite3.connect(db)

@@ -165,7 +165,7 @@ class ClusterAnalyzer(object):
                                 bad_call_scores['away'] += score
                             else:
                                 bad_call['home'] += 1
-                                bad_call_scores['away'] += score
+                                bad_call_scores['home'] += score
 
                 elif comment_tags[np.where(self.class_tags == 'SA')] and \
                     not comment_tags[np.where(self.class_tags == 'SH')]:
@@ -225,7 +225,7 @@ class ClusterAnalyzer(object):
                 if code == 'M':
                     missed = True
                 break
-            if code in '0,1,2,SHSAGHGAEDCMRCRR': # 0-2 are separated by commas to avoid matching, eg, 12
+            if code in '0,1,2,3,4,SHSAGHGAEDCMRCRR': # 0-4 are separated by commas to avoid matching, eg, 12
                 continue
             elif code == 'M':
                 missed = True

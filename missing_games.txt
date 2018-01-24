@@ -107,3 +107,11 @@ Away team not in dictionary holiday bowl. Opponent wisconsin.
 Away team not in dictionary fiesta bowl. Opponent ohio state.
 Away team not in dictionary taxslayer bowl. Opponent georgia.
 Away team not in dictionary ndsu. Opponent montana.
+Home team not in dictionary notre dame second half. Opponent georgia tech.
+Home team not in dictionary notre dame first half. Opponent georgia tech.
+Away team not in dictionary big ten championship game. Opponent iowa.
+Away team not in dictionary big ten championship game. Opponent iowa.
+Away team not in dictionary texas bowl. Opponent texas tech.
+Away team not in dictionary sugar bowl. Opponent ole miss.
+Away team not in dictionary citrus bowl. Opponent florida.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team alabama.

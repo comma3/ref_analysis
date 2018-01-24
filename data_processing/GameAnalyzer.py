@@ -25,7 +25,8 @@ class GameAnalyzer(object):
         self.game_thread = game_thread
 
         with open('analyzed.txt', 'a') as ana:
-            ana.write(self.game_thread + "\n")
+            # game_thread can be numeric and automatically case as int
+            ana.write(str(self.game_thread) + "\n")  
 
         self.game_id = game_id
 
