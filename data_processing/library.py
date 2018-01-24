@@ -9,7 +9,34 @@ from sklearn.naive_bayes import MultinomialNB
 import praw
 
 from LemmaTokenizer import LemmaTokenizer
-#from MultiTargetModel import MultiTargetModel
+from MultiTargetModel import MultiTargetModel
+
+
+def get_games_dict(db='/data/cfb_game_db.sqlite3', team_nickname_dict_path='/home/mattfred/Dropbox/Projects/ref_analysis/team_list.csv'):
+
+    team_nickname_dict =  make_team_nickname_dict(team_nickname_dict_path)
+
+    conn = sqlite3.connect(db)
+    curr = conn.cursor()
+    curr.execute("""
+                SELECT
+                game_thread, home, away
+                FROM
+                games
+                WHERE
+                game_thread
+                IN
+                    (SELECT DISTINCT
+                    game_thread
+                    FROM
+                    calls);
+                """)
+
+    out = {}
+    for thread, home, away in curr.fetchall():
+        out[thread] = (team_nickname_dict[home], team_nickname_dict[away])
+    conn.close()
+    return out
 
 def make_team_nickname_dict(filename):
     """
@@ -89,6 +116,46 @@ def sub_home_away(doc, home, away, team_nickname_dict):
 
     return doc
 
+def get_MultiTargetModel(pickle_path='model.pkl', db='/data/cfb_game_db.sqlite3', overwrite=False, verbose=True, **kwargs):
+    """
+
+    """
+
+    if not os.path.isfile(pickle_path) or overwrite:
+        if verbose:
+            print('Getting data from {}'.format(db))
+        query = """SELECT
+                    body, category
+                    FROM
+                    training_data
+                    """
+        conn = sqlite3.connect(db)
+        curr = conn.cursor()
+        curr.execute(query)
+        data = np.array(curr.fetchall())
+        conn.close()
+
+        text = data[:,0]
+        labels = data[:,1]
+
+        with open('../ref_analysis/data/common-english-words.csv') as f:
+            stop_words = [word.strip() for word in f]
+
+        if verbose:
+            print('Fitting new model.')
+
+        multilabler = MultiTargetModel(MultinomialNB, vectorizer=CountVectorizer, stop_words=stop_words, tokenizer=LemmaTokenizer)
+        multilabler.fit_classifier(text, labels, **kwargs)
+        if pickle_path:
+            print('Saving model as {}'.format(pickle_path))
+            pickle.dump(multilabler, open(pickle_path, 'wb'))
+
+    else:
+        if verbose:
+            print('Loading data from pickle')
+        multilabler = pickle.load(open(pickle_path, 'rb'))
+
+    return multilabler
 
 def load_data(thread, overwrite=False, subreddit = 'cfb',\
                 bot_params='bot1', verbose=True):
@@ -119,6 +186,7 @@ def load_data(thread, overwrite=False, subreddit = 'cfb',\
                     reddit and get comment forrest reply.
 
     """
+
     pickle_path = '/data/comment_pickles/{}.pkl'.format(thread)
     if not os.path.isfile(pickle_path) or overwrite:
         if verbose:
@@ -216,63 +284,7 @@ def collect_game_threads(db='/data/cfb_game_db.sqlite3', n_games=None, random=Fa
     conn.close()
     return games
 
-def replace_many(to_replace, replace_with, string):
-    """
-    Replace all of the items in the to_replace list with replace_with.
-    --------------
-    INPUT
-    --------------
-    to_replace: Itrable -  a string or list containing characters or substrings
-                        to replace.
-    --------------
-    OUTPUT
-    --------------
-    string:     Str - string with all of the replacements made
-    """
-    for s in to_replace:
-        string.replace(s, replace_with)
-    return string
 
-def get_MultiTargetModel(pickle_path='model.pkl', db='/data/cfb_game_db.sqlite3', overwrite=False, verbose=True, **kwargs):
-    """
-
-    """
-
-    if not os.path.isfile(pickle_path) or overwrite:
-        if verbose:
-            print('Getting data from {}'.format(db))
-        query = """SELECT
-                    body, category
-                    FROM
-                    training_data
-                    """
-        conn = sqlite3.connect(db)
-        curr = conn.cursor()
-        curr.execute(query)
-        data = np.array(curr.fetchall())
-        conn.close()
-
-        text = data[:,0]
-        labels = data[:,1]
-
-        with open('../ref_analysis/data/common-english-words.csv') as f:
-            stop_words = [word.strip() for word in f]
-
-        if verbose:
-            print('Fitting new model.')
-
-        multilabler = MultiTargetModel(MultinomialNB, vectorizer=CountVectorizer, stop_words=stop_words, tokenizer=LemmaTokenizer)
-        multilabler.fit_classifier(text, labels, **kwargs)
-        if pickle_path:
-            print('Saving model as {}'.format(pickle_path))
-            pickle.dump(multilabler, open(pickle_path, 'wb'))
-
-    else:
-        if verbose:
-            print('Loading data from pickle')
-        multilabler = pickle.load(open(pickle_path, 'rb'))
-
-    return multilabler
 
 
 if __name__ == '__main__':

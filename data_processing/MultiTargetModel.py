@@ -25,7 +25,7 @@ class MultiTargetModel():
         self.X = None
         self.targets = None
         self.classifier = None
-        self.class_labels = None
+        self.target_classes = None
 
         self.precision = None
         self.recall = None
@@ -35,7 +35,6 @@ class MultiTargetModel():
     def fit_classifier(self, X, y, **kwargs):
         """
         """
-        X = sub_home_away(X)
         self.X = self.vectorizer.fit_transform(X)
         self.classifier = OneVsRestClassifier(self.model(**kwargs))
         self._make_targets(y) # Modifies self.targets
@@ -46,14 +45,14 @@ class MultiTargetModel():
         """
         Convert column of stringlists (e.g., '1,12,E') to MultiLabelBinarizer
         """
-        mlb = MultiLabelBinarizer(n_jobs=self.n_jobs)
+        mlb = MultiLabelBinarizer()
         # Type casting messed up and need to get value out of tuple
         strings = y.astype(str)
         clean = [x.replace(' ', '') for x in strings]
         dummies = [x.split(',') for x in clean]
         self.targets = mlb.fit_transform(dummies)
-        self.class_labels = mlb.classes_
-        #print(self.class_labels)
+        self.target_classes = mlb.classes_
+        #print(self.target_classes)
 
     def make_predictions(self, X):
         """
@@ -104,6 +103,9 @@ class MultiTargetModel():
             print(score)
             avg += score
         print('Average Precision: {}'.format(avg/len(self.precision)))
+
+
+
 
 if __name__ == '__main__':
     db='/data/cfb_game_db.sqlite3'

@@ -18,7 +18,7 @@ class GameAnalyzer(object):
     """
 
     def __init__(self, model, game_id, game_thread, home, away, winner,
-                    team_nickname_dict_path='team_list.csv', min_comments=500, \
+                    team_nickname_dict, min_comments=500, \
                     squelch_errors=True, error_log_path='missing_games.txt', \
                     print_figs=False):
 
@@ -26,7 +26,7 @@ class GameAnalyzer(object):
 
         with open('analyzed.txt', 'a') as ana:
             # game_thread can be numeric and automatically case as int
-            ana.write(str(self.game_thread) + "\n")  
+            ana.write(str(self.game_thread) + "\n")
 
         self.game_id = game_id
 
@@ -59,8 +59,7 @@ class GameAnalyzer(object):
         # High likelihood team's not in dict. Can't realluy trust data either
         # Don't have time for this so we just skip everything.
         if len(self.comments) > self.min_comments:
-            self.team_nickname_dict = \
-                        make_team_nickname_dict(team_nickname_dict_path)
+            self.team_nickname_dict = team_nickname_dict
 
             self.model = model # MultiTargetModel
 
@@ -388,19 +387,24 @@ if __name__ == '__main__':
         short = set(ana.read().splitlines())
     num_games= len(game_list)
     print('Number of games in DB: {}'.format(num_games))
+
+    team_nickname_dict = make_team_nickname_dict('team_list.csv')
     model = get_MultiTargetModel(overwrite=False, alpha=0, fit_prior=True)
-    # print('Recall:')
-    # model.calc_recall()
-    # print('Precision:')
-    # model.calc_preciscion()
-    # print('Accuracy:')
-    # model.calc_accuracy()
+    print('Recall:')
+    model.calc_recall()
+    print('Precision:')
+    model.calc_preciscion()
+    print('Accuracy:')
+    model.calc_accuracy()
     for n, game in enumerate(game_list):
         print('{:.1f}% Complete'.format(n/num_games))
         game_id, game_thread, home, away, winner = game
+        game_thread = str(game_thread)
+        print(game_thread)
         if game_thread in short: # Need a better solution for games that we skipped
             continue
-        analyzer = GameAnalyzer(model, game_id, game_thread, home, away, winner)
+        analyzer = GameAnalyzer(model, game_id, game_thread, home, away, \
+                                winner, team_nickname_dict)
         analyzer.classify_comments()
         if analyzer.find_clusters(time_scale_factor=1.5, print_figs=False,\
                                                 min_comments=50, max_k=10)\

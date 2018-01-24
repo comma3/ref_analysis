@@ -181,8 +181,10 @@ RR - call reversed
 
 31 - Hands to the face
 
+32 - Taunting
 
 
+------------
 18 - Clipping
 19 - Illegal motion/shift
 20 - Illegal substitution/too many men
