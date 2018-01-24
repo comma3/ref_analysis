@@ -101,3 +101,16 @@ Away team not in dictionary peach bowl - alabama. Opponent washington.
 Away team not in dictionary peach bowl - alabama. Opponent washington.
 Away team not in dictionary sugar bowl - oklahoma. Opponent auburn.
 Away team not in dictionary cotton bowl - wisconsin. Opponent western michigan.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team western michigan.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team stanford.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team texas.
+Away team not in dictionary louisiana. Opponent texas a&m.
+Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team california.
+Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team washington state.
+Home team name not unique. Received wake forest and gave {'wake forest demon deacons', 'tennessee volunteers'} with the away team florida state.
+Away team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the home team florida state.
+Away team name not unique. Received wake forest and gave {'wake forest demon deacons', 'tennessee volunteers'} with the home team clemson.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team utah.
+Home team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the away team georgia tech.
+Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team notre dame.
+Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team arizona state.

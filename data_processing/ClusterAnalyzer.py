@@ -132,7 +132,24 @@ class ClusterAnalyzer(object):
             if score_list:
                 for comment_tags, score, mentioned in score_list:
                     self.tag_counts += comment_tags
-                    if comment_tags[np.where(self.class_tags == 'D')]:
+                    if comment_tags[np.where(self.class_tags == 'SA')] and \
+                        not comment_tags[np.where(self.class_tags == 'SH')]:
+                        bad_call['away'] += 1
+                        bad_call_scores['away'] += score
+                    elif comment_tags[np.where(self.class_tags == 'GH')] and \
+                        not comment_tags[np.where(self.class_tags == 'SH')]:
+                        bad_call['away'] += 1
+                        bad_call_scores['away'] += score
+
+                    elif comment_tags[np.where(self.class_tags == 'SH')] and \
+                        not comment_tags[np.where(self.class_tags == 'SA')]:
+                        bad_call['home'] += 1
+                        bad_call_scores['home'] += score
+                    elif comment_tags[np.where(self.class_tags == 'GA')] and \
+                        not comment_tags[np.where(self.class_tags == 'SA')]:
+                        bad_call['home'] += 1
+                        bad_call_scores['home'] += score
+                    elif comment_tags[np.where(self.class_tags == 'D')]:
                         # We are going to skip these for now. Will apply their effects
                         # when we have a better idea of which team got the penalty
                         continue
@@ -208,6 +225,10 @@ class ClusterAnalyzer(object):
             self.team_affected = 'away'
 
         if self.team_affected == 'home':
+            print('Team affected: {}\tRule: {}'.format(self.home,self.rule))
+            for tf, comment, labels in self.cluster:
+                print('Author: {}\tFlair: {}\tScore: {}\n\nBody:\n{}\n\n'.format(comment.author, comment.author_flair_text, comment.score, comment.body))
+
             return (self.home, self.rule, bad_call_scores['home'] - bad_call_scores['away'])
         if self.team_affected == 'away':
             return (self.away, self.rule, bad_call_scores['away'] - bad_call_scores['home'])

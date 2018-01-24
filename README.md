@@ -79,4 +79,4 @@ Other interesting statistics arise from these results:
 
  The r/football community has over 350,000 members, many of whom are quite fanatical about college football and their teams. Hand labeling the training data is very, very time consuming. Therefore, I intend to create a web app and leverage this community to label some of the data for me.
 
- Additionally, this model will require substantial iteration to improve the heuristics involved in labeling data. Manual examination of the clusters is required to determine if the prediction is accurate.s
+ Additionally, this model will require substantial iteration to improve the heuristics involved in labeling data. Manual examination of the clusters is required to determine if the prediction is accurate.

@@ -68,18 +68,22 @@ class MultiTargetModel():
         self.accuracy = self.classifier.score(X, self.targets)
         print(self.accuracy)
 
-    def calc_recall(self, X=None):
+    def calc_recall(self, X=None, y=None):
         """
         """
         if not X:
             X = self.X
-        labels = np.array(self.targets)
+        if not y:
+            y = self.targets
+        labels = np.array(y)
         preds = np.array(self.make_predictions(X))
-        labels[labels == 0] = 2
-        preds[preds == 0] = 3
-        correct = labels == preds
-        labels[labels == 2] = 0
-        self.recall = correct.sum(axis = 0) / labels.sum(axis=0)
+        #labels[labels == 0] = 2
+        #preds[preds == 0] = 3
+        correct = ((labels == preds) and (labels == 1))
+        #pred[preds == 3] = 0
+        #labels[labels == 2] = 0
+        print(correct)
+        self.recall = correct.sum(axis = 0) / labels.sum(axis=0) # Labels = True Positives + False Negatives
         avg = 0
         for score in self.recall:
             print(score)
@@ -91,19 +95,27 @@ class MultiTargetModel():
         """
         if not X:
             X = self.X
-        labels = np.array(self.targets)
+        if not y:
+            y = self.targets
+        labels = np.array(y)
         preds = np.array(self.make_predictions(X))
-        labels[labels == 0] = 2
+        labels[labels == 0] = 2 # Hacky solution. Couldn't find a way to only evaluate
         preds[preds == 0] = 3
-        correct = labels == preds
+        correct = labels == preds # True positives
         preds[preds == 3] = 0
-        self.precision = correct.sum(axis = 0) / preds.sum(axis=0)
+        labels[labels ==2] = 0
+        self.precision = correct.sum(axis = 0) / preds.sum(axis=0) # Predictions = True Positives + False Positives
+        weights = preds.sum(axis=0) / preds.sum() # columnwise totals divided by total of array
         avg = 0
         for score in self.precision:
             print(score)
             avg += score
         print('Average Precision: {}'.format(avg/len(self.precision)))
-
+        weighted = 0
+        for score,weight in self.precision:
+            print(score)
+            avg += score
+        print('Average Precision: {}'.format(avg/len(self.precision)))
 
 
 
