@@ -114,3 +114,17 @@ Home team name not unique. Received usc and gave {'south carolina gamecocks', 'u
 Home team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the away team georgia tech.
 Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team notre dame.
 Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team arizona state.
+Away team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the home team north carolina.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team arizona.
+Home team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the away team virginia tech.
+Away team name not unique. Received wake forest and gave {'wake forest demon deacons', 'tennessee volunteers'} with the home team notre dame.
+Home team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the away team notre dame.
+Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team colorado.
+Home team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the away team ucla.
+Home team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the away team virginia.
+Away team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the home team pittsburgh.
+Away team name not unique. Received usc and gave {'south carolina gamecocks', 'usc trojans'} with the home team stanford.
+Home team name not unique. Received miami and gave {'miami (oh) redhawks', 'miami hurricanes'} with the away team clemson.
+Home team not in dictionary ohio state second half. Opponent penn state.
+Home team not in dictionary ohio state second half thread. Opponent wisconsin.
+Home team not in dictionary georgia second half thread. Opponent auburn.

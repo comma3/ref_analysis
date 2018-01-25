@@ -389,7 +389,7 @@ if __name__ == '__main__':
     print('Number of games in DB: {}'.format(num_games))
 
     team_nickname_dict = make_team_nickname_dict('team_list.csv')
-    model = get_MultiTargetModel(overwrite=False, alpha=0, fit_prior=True)
+    model = get_MultiTargetModel(overwrite=False, stop_words=stop_words, alpha=0, fit_prior=True)
     print('Recall:')
     model.calc_recall()
     print('Precision:')
@@ -397,7 +397,7 @@ if __name__ == '__main__':
     print('Accuracy:')
     model.calc_accuracy()
     for n, game in enumerate(game_list):
-        print('{:.1f}% Complete'.format(n/num_games))
+        print('{:.1f}% Complete'.format(100*n/num_games))
         game_id, game_thread, home, away, winner = game
         game_thread = str(game_thread)
         print(game_thread)
